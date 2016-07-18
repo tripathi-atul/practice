@@ -1,0 +1,174 @@
+package com.snapdeal.properties.test.cart;
+
+import java.util.ArrayList;
+
+import junit.framework.Assert;
+
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
+import com.mongodb.DBObject;
+import com.snapdeal.base.tenant.model.StoreFront;
+import com.snapdeal.cart.mw.client.service.request.GetCartItemsCountRequest;
+import com.snapdeal.cart.mw.client.service.response.CartMwCountResponse;
+import com.snapdeal.cart.mw.entity.BasketType;
+import com.snapdeal.cart.mw.entity.ItemDetails;
+import com.snapdeal.helper.request.GenerateOMSCartRequest;
+import com.snapdeal.testbase.TestBase;
+import com.snapdeal.utils.CartTestUtils;
+
+public class GetCartItemsCountTest extends TestBase {
+	
+	/**
+	 * Test method to test the cartItem count with email
+	 */
+
+	@BeforeClass(alwaysRun = true)
+	public void beforeClass() {
+		mongo = initializeMongoDB();
+	
+	}
+	
+	
+	@Test
+	// add validation in this test case
+	public void getCartItemsCount()
+
+	{
+		GetCartItemsCountRequest getCartItemsCountRequest = GenerateOMSCartRequest
+				.getcartItemsCountRequest();
+		String cartId =null;
+		CartMwCountResponse cartMwResponse =null;
+
+		CartTestUtils.insertItemForPrepare(null);
+		getCartItemsCountRequest.setCartId(filledCartList.getCartId());
+		getCartItemsCountRequest.setEmailId(filledCartList.getUserEmail());
+		try {
+			cartMwResponse = (CartMwCountResponse) cartApiHelper
+					.getSnapDealCartResponse(getCartItemsCountRequest,
+							"getCartItemsCount");
+			 cartId = cartMwResponse.getCartId();
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		DBObject dbRecord = mongo.find("cart",
+				cartId).get(0);
+		ArrayList dblist = (ArrayList) dbRecord.get("cartItems");
+		Assert.assertEquals(cartMwResponse.getCount(), dblist.size());
+
+	}
+	
+	/**
+	 * Test method to test the cartItem count without Email
+	 */
+
+	@Test
+	public void getCartItemsCountForNonExistingEmail()
+
+	{
+		GetCartItemsCountRequest getCartItemsCountRequest = GenerateOMSCartRequest
+				.getcartItemsCountRequest();
+		getCartItemsCountRequest.setEmailId(null);
+		String cartId =null;
+		CartMwCountResponse cartMwResponse =null;
+		ItemDetails itemDetails = new ItemDetails(latestProduct.get(0),latestProduct.get(1),Long.parseLong(latestProduct.get(2)),3);
+
+		CartTestUtils.insertItemForPrepareWithItemDetails(null,itemDetails,null);
+		getCartItemsCountRequest.setCartId(filledCartList.getCartId());
+		try {
+			cartMwResponse = (CartMwCountResponse) cartApiHelper
+					.getSnapDealCartResponse(getCartItemsCountRequest,
+							"getCartItemsCount");
+			 cartId = cartMwResponse.getCartId();
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		DBObject dbRecord = mongo.find("cart",
+				getCartItemsCountRequest.getCartId()).get(0);
+		ArrayList dblist = (ArrayList) dbRecord.get("cartItems");
+		Assert.assertEquals(cartMwResponse.getCount(), dblist.size());
+	
+
+	}
+	
+	
+	//EXL
+	
+	@Test
+	// add validation in this test case
+	public void getCartItemsCountEXL()
+
+	{
+		GetCartItemsCountRequest getCartItemsCountRequest = GenerateOMSCartRequest
+				.getcartItemsCountRequest();
+		StoreFront sf = new StoreFront();
+		sf.setCode("EXL");
+		getCartItemsCountRequest.setStoreFront(sf);
+		String cartId =null;
+		CartMwCountResponse cartMwResponse =null;
+
+		CartTestUtils.insertItemForPrepare(null,sf);
+		getCartItemsCountRequest.setCartId(filledCartList.getCartId());
+		getCartItemsCountRequest.setEmailId(filledCartList.getUserEmail());
+		try {
+			cartMwResponse = (CartMwCountResponse) cartApiHelper
+					.getSnapDealCartResponse(getCartItemsCountRequest,
+							"getCartItemsCount");
+			 cartId = cartMwResponse.getCartId();
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		DBObject dbRecord = mongo.find("cart",
+				cartId).get(0);
+		ArrayList dblist = (ArrayList) dbRecord.get("cartItems");
+		Assert.assertEquals(cartMwResponse.getCount(), dblist.size());
+
+	}
+	
+	/**
+	 * Test method to test the cartItem count without Email
+	 */
+
+	@Test
+	public void getCartItemsCountForNonExistingEmailEXL()
+
+	{
+		GetCartItemsCountRequest getCartItemsCountRequest = GenerateOMSCartRequest
+				.getcartItemsCountRequest();
+		StoreFront sf = new StoreFront();
+		sf.setCode("EXL");
+		getCartItemsCountRequest.setStoreFront(sf);
+		getCartItemsCountRequest.setEmailId(null);
+		String cartId =null;
+		CartMwCountResponse cartMwResponse =null;
+		ItemDetails itemDetails = new ItemDetails(latestProduct.get(0),latestProduct.get(1),Long.parseLong(latestProduct.get(2)),3);
+
+		CartTestUtils.insertItemForPrepareWithItemDetails(null,itemDetails,null,sf);
+		getCartItemsCountRequest.setCartId(filledCartList.getCartId());
+		try {
+			cartMwResponse = (CartMwCountResponse) cartApiHelper
+					.getSnapDealCartResponse(getCartItemsCountRequest,
+							"getCartItemsCount");
+			 cartId = cartMwResponse.getCartId();
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		DBObject dbRecord = mongo.find("cart",
+				getCartItemsCountRequest.getCartId()).get(0);
+		ArrayList dblist = (ArrayList) dbRecord.get("cartItems");
+		Assert.assertEquals(cartMwResponse.getCount(), dblist.size());
+	
+
+	}
+
+
+
+}

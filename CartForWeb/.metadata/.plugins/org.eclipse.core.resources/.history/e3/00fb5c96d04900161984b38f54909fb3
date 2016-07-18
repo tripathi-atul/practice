@@ -1,0 +1,17 @@
+package com.syncron;
+
+
+		public interface ReadService<T> {
+		 T read(int id);
+		}
+
+		Write this class:
+
+		public class CachedReadService<T> implements ReadService<T>{
+		 public CachedReadService(ReadService<T> target) {
+		 }
+
+		 @Override
+		 public T read(int id) {
+		 }
+		}

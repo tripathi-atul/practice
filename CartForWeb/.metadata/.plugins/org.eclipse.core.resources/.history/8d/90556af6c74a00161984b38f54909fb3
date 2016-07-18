@@ -1,0 +1,64 @@
+package com.syncron;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+
+
+public class CachedReadService<T> implements ReadService<T> {
+	
+	ReadService <T> target;
+	Map<Integer,T> map = new ConcurrentHashMap<Integer,T>();
+	
+	public CachedReadService(ReadService<T> target) {
+	this.target = Objects.requireNonNull(target);
+	}
+
+/*	@Override
+	public T read(int id) {
+		synchronized (this) {
+		if (map.containsKey(id)) {
+				return map.get(id);
+			}
+		else
+			synchronized (this) {
+				return map.put(id, target.read(id));
+			}
+		}
+	}*/
+	
+	//Concurrent hashmap strategy
+	@Override
+	public T read(int id) {
+		T valueToBeSaved = target.read(id);
+		T savedValue = map.putIfAbsent(id, valueToBeSaved);
+		if(savedValue != null  && savedValue.equals(valueToBeSaved))
+			return savedValue;
+		else
+			//fetching it again to return the latest value of the id considering
+			//some other may re-write it in between
+			return map.put(valueToBeSaved);
+	
+	}
+	
+	
+	
+	public static void main(String[] args)  {
+		ArrayList<Integer> array = new ArrayList<Integer>();
+		array.add(1);
+		array.add(2);
+		array.add(3);
+		array.add(9);
+		array.add(5);
+		SenderReadService<Integer> srs = new SenderReadService<Integer>(array);
+		CachedReadService<Integer> crs = new CachedReadService<Integer>(srs);
+		crs.read(1);
+		crs.read(2);
+		crs.read(3);
+		crs.read(4);
+		crs.read(3);
+	
+	}
+}

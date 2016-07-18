@@ -1,0 +1,38 @@
+package com.syncron;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+
+public class CachedReadService<T> implements ReadService<T> {
+	ReadService <T> target;
+	Map<Integer,T> map = new ConcurrentHashMap<Integer,T>();
+	public CachedReadService(ReadService<T> target) {
+	this.target = target;
+	}
+
+/*	@Override
+	public T read(int id) {
+		synchronized (this) {
+		if (map.containsKey(id)) {
+				return map.get(id);
+			}
+		else
+			synchronized (this) {
+				return map.put(id, target.read(id));
+			}
+		}
+	}*/
+	@Override
+	public T read(int id) {
+		T valueToBeSaved = target.read(id);
+		
+		return null;
+	}
+	
+	public static void main(String[] args)  {
+		
+		
+	}
+}

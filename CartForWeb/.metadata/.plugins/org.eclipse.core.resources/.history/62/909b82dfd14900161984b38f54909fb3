@@ -1,0 +1,28 @@
+package com.syncron;
+
+import java.util.HashMap;
+import java.util.Map;
+
+
+public class CachedReadService<T> implements ReadService<T> {
+	ReadService <T> target;
+	public CachedReadService(ReadService<T> target) {
+	target = target;
+	}
+
+	@Override
+	public T read(int id) {
+		Map<Integer,T> map = new HashMap<Integer,T>();
+		if(map.containsKey(id)) {
+			return map.get(id);
+		}
+		else 
+		map.put(id,target);
+	}
+	
+	
+	public static void main(String[] args)  {
+		
+		
+	}
+}

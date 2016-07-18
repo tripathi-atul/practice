@@ -1,0 +1,40 @@
+package com.snapdeal.helper;
+
+**
+*  Copyright 2015 Jasper Infotech (P) Limited . All Rights Reserved.
+*  JASPER INFOTECH PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
+*/
+
+import com.snapdeal.cart.client.entity.BuyForm;
+import com.snapdeal.cart.client.entity.Cart;
+
+/**
+* @version 1.0, 13-Sep-2015
+* @author harish
+*/
+public interface ICartAerospikeClient {
+
+   void initialize();
+
+   void save(Cart cart, String userEmail);
+
+   void remove(Cart cart, String userEmail);
+
+   void remove(String cartId, String storeFront, String type);
+
+   Cart get(String cartId, String storeFront);
+
+   Cart getCartUsingEmailId(String emailId, String storeFront);
+
+   public void saveBuyForm(BuyForm buyForm);
+
+   void deleteBuyForm(BuyForm buyForm);
+
+   BuyForm getBuyFormById(String buyFormID);
+
+   void saveEmailInfo(String email, String otherEmail, String imsId);
+
+
+   Cart getCartUsingImdId(String imsId, String storeFront);
+
+}

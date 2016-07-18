@@ -1,0 +1,69 @@
+
+package com.snapdeal.dataprovider;
+
+import org.testng.annotations.DataProvider;
+
+import com.snapdeal.base.utils.StringUtils;
+import com.snapdeal.cart.mw.entity.ItemDetails;
+import com.snapdeal.testbase.TestBase;
+import com.snapdeal.utils.CartTestUtils;
+
+public class CartDataProvider extends TestBase{
+	
+	@DataProvider(name = "data-provider-CartId")
+	public static Object[][] cartData()
+	{   	   ItemDetails detail = new ItemDetails("SDL089563347", "e16a2a",
+			Long.parseLong("624796431232"), 2, null, null, null, null, null, null);
+	//CartTestUtils.insertItemForPrepareWithItemDetails(null, detail, null);
+		return new Object[][] { { null,1,null}, { null,1,"110020"},{ null,1,"110020"}};
+	}
+	
+	@DataProvider(name = "data-provider-pinCode")
+	public static Object[][] cartDataPincode()
+	{
+		return new Object[][] { { null}, { "226006" } };
+	}
+
+	//promoCOde,loyalityPointsApplicable,inventoryCheckApplicable,autoSellerChange,deliveryDetailsUpdate
+	@DataProvider(name = "data-provider-configCode")
+	public static Object[][] cartDataConfig()
+	{
+		Boolean combination1[] = { true,true,true,true,true};
+		Boolean combination2[] = {false,true,true,true,true };
+		Boolean combination3[] = {true,false,true,true,true };
+	    Boolean combination4[] = {true,true,false,true,true };
+		Boolean combination5[] = {true,true,true,false,false };
+		return new Object[][] { { combination1}, {combination2 },
+				{combination3 },{combination4},
+				{combination5}};
+	}
+	
+	@DataProvider(name = "data-provider-supcVendorCatalog")
+	public static Object[][] cartDataSupcVendorCatalog()
+	{   
+		
+		latestProductNonFmcg = db.getLatestSUPCWithValidData();
+		return new Object[][] { {latestProductNonFmcg.get(0),"vendorCode1","1"}, {"supc",latestProductNonFmcg.get(1),"21344" },
+				{"supc","vendorCode1",latestProductNonFmcg.get(2)},{null,null,"1234"}};
+	}
+
+	
+	@DataProvider(name = "data-provider-CartFreeBie")
+	public static  Object[][] cartDataSupcFreeBies()
+	{   
+		return new Object[][] { {"SDL062513996","aace21","1019882508",true}, {"BOK042903475", "927ead", "311612210",false }};
+}
+	
+	@DataProvider(name = "data-provider-CartShippingFreeBie")
+	public static Object[][] cartDataSupcShippingFreeBies()
+	{   
+		return new Object[][] { {"SDL651751141","S1a848","684129415736"}};
+}
+	
+	@DataProvider(name = "data-provider-CartIdRemoveFreeze")
+	public static Object[][] cartDataIdsforRemove()
+	{
+		return new Object[][] { { null,StringUtils.getRandom(5)+"@gmail.com"}, { "12345",StringUtils.getRandom(5)+"@gmail.com" } };
+	}
+}
+

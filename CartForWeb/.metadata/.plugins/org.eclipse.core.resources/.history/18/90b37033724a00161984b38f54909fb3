@@ -1,0 +1,15 @@
+package com.syncron;
+
+import java.util.ArrayList;
+
+public class SenderReadService<T> implements ReadService<T> {
+	ArrayList<T> list = new ArrayList<T>();
+	
+	public SenderReadService() {
+	}
+
+	@Override
+	public T read(int id) {
+		return list.get(0);
+	}
+}

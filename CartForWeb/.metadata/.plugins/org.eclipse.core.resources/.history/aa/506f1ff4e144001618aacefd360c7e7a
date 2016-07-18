@@ -1,0 +1,1910 @@
+package com.snapdeal.properties.test.cart;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+
+import com.snapdeal.base.tenant.model.StoreFront;
+import com.snapdeal.base.utils.StringUtils;
+import com.snapdeal.cart.client.service.request.GetNonShippableCartRequest;
+import com.snapdeal.cart.mw.client.service.impl.CartMwClientServiceImpl;
+import com.snapdeal.cart.mw.client.service.request.GetCartUsingIdRequest;
+import com.snapdeal.cart.mw.client.service.request.InsertItemsRequest;
+import com.snapdeal.cart.mw.client.service.request.NonFrozenCartUsingEmailRequest;
+import com.snapdeal.cart.mw.client.service.response.CartMwResponse;
+import com.snapdeal.cart.mw.client.service.response.CartMwServiceResponse;
+import com.snapdeal.cart.mw.entity.BasketType;
+import com.snapdeal.cart.mw.entity.CartMwSRO;
+import com.snapdeal.cart.mw.entity.DeliveryType;
+import com.snapdeal.cart.mw.entity.ItemDetails;
+import com.snapdeal.cart.mw.entity.Platform;
+import com.snapdeal.dataprovider.CartDataProvider;
+import com.snapdeal.testbase.TestBase;
+/*import com.snapdeal.helper.DBHelper;*/
+/*import com.snapdeal.utils.DatabaseUtils;*/
+
+/**
+ *  @author atul.tripathi
+ *  Class to test the Cart API while inserting the new record to cart. 
+ */
+
+public class InsertCartTest extends TestBase {
+	@Autowired
+	CartMwClientServiceImpl cartMwClientServiceImpl;
+	
+	public static CartMwSRO filledCart;
+	ArrayList<String> latestDataWithODD = null; 
+	ArrayList<String> zeroInventoryFromIpms = null;
+	ArrayList<String> latestO2OProduct = null;
+	
+
+	@BeforeClass(alwaysRun = true)
+	public void beforeClass() {
+		mongo = initializeMongoDB();
+		db = initializeDB();
+		latestProduct = db.getLatestSUPCWithValidData();
+		latestParentSoftProduct = db.getLatestSoftBundlingParentProduct();
+		latestChildSoftProduct = db.getLatestSoftBundlingChildProduct();
+		latestFMCGProduct  = db.getLatestFMCGProduct();
+		latestProductNonFmcg=  db.getLatestSUPCForNonFMCG();
+		secondlatestProductNonFmcg = db.getSecondLatestNonFMCGSUPCNotEqualToFirst(latestProductNonFmcg.get(0));
+	    latestDataWithODD = db.getLatestSUPCWithODDData();
+	    zeroInventoryFromIpms = db.getLatestSUPCWithZeroInventory();
+	    latestO2OProduct = db.getLatestSUPCWithO2OProduct();
+		//CartTestUtils.insertItemForPrepare(null);
+
+	}
+
+	static String cartId;
+	String emailId;
+
+	
+	
+	/** SDL Insert the cart for the first time, Need to add variation for userEmail and withouot userEmail
+	 * Verified
+	 * 
+	 */
+	
+	@Test(priority=1,dataProvider = "data-provider-CartId", dataProviderClass = CartDataProvider.class)
+	public void insertItemWithDifferentCartId(CartMwSRO cart, int quantity,String pincode) {
+		InsertItemsRequest request = new InsertItemsRequest();
+		request.setCartId(null);
+		com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+		sf.setCode("SDL");
+		request.setStoreFront(sf);
+		
+		request.setQuickbuy(true);
+		if(cart != null){
+		request.setCartId(cart.getCartId());
+		}
+	    ItemDetails detail = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+				Long.parseLong(latestProductNonFmcg.get(2)), 1, null, null, null, null, null, null);
+	    //detail.setStoreFront(StoreFront.NGO_DONATION);
+		List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+		detailsList.add(detail);
+		request.setItemDetailsList(detailsList);
+		
+		request.getConfig().setAutoSellerChange(true);
+		request.getConfig().setLoyaltyPointsApplicable(true);
+		request.getConfig().setPlatform(Platform.WEB);
+		request.getConfig().setPromoApplicable(true);
+		request.setPincode(pincode);
+		//request.getItemDetailsList().get(0).setStoreFront(StoreFront.);
+		
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "insertItems");
+		} catch (InvocationTargetException 	e) {
+			e.printStackTrace();
+		}
+		
+		request.setCartId(response.getCart().getCartId());
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "insertItems");
+		} catch (InvocationTargetException 	e) {
+			e.printStackTrace();
+		}
+		
+		
+		if(cart == null)
+		{
+			Assert.assertEquals(response.getCart().getCartId()!=null, true);
+		}
+		
+		else
+		{
+		Assert.assertEquals(response.getCart().getCartId(), request.getCartId());
+		}
+        cartId = response.getCart().getCartId();
+        int noOfCartItems = response.getCart().getCartItems().size();
+        int itemNo = 0;
+		Assert.assertEquals(latestProductNonFmcg.get(0), response.getCart().getCartItems()
+				.get(0).getSupc());
+		/*Assert.assertEquals(latestProductNonFmcg.get(1), response.getCart().getCartItems().get(0)
+				.getVendorCode());*/
+		if(response.getCart().getCartItems().get(0).getAvailableQuantity() >= quantity)
+		{
+	    Assert.assertEquals(quantity, response.getCart().getCartItems().get(0)
+				.getQuantity());
+		}
+		else if((response.getCart().getCartItems().get(0).getAvailableQuantity() < quantity)){
+			//Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() != quantity);
+		}
+
+	}
+	
+	/** SDL All combination of config
+	 * 
+	 * 
+	 */
+	
+	@Test(priority=2,dataProvider = "data-provider-configCode", dataProviderClass = CartDataProvider.class)
+	public void insertItemWithDifferentConfig(Boolean[] config) {
+		InsertItemsRequest request = new InsertItemsRequest();
+		request.setCartId(filledCartList.getCartId());
+	    ItemDetails detail = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+				Long.parseLong(latestProductNonFmcg.get(2)), 2, null, null, null, null, null, null);
+		
+	    List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+		detailsList.add(detail);
+		request.getConfig().setPromoApplicable(true);
+		request.getConfig().setLoyaltyPointsApplicable(true);
+		request.getConfig().setInventoryCheckApplicable(true);
+		request.getConfig().setAutoSellerChange(true);
+		request.getConfig().setDeliveryDetailsUpdate(true);
+		
+		
+		request.setItemDetailsList(detailsList);
+		request.getConfig().setPlatform(Platform.WEB);
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "insertItems");
+		} catch (InvocationTargetException 	e) {
+			e.printStackTrace();
+		}
+        cartId = response.getCart().getCartId();
+        int noOfCartItems = response.getCart().getCartItems().size();
+        int itemNo = 0;
+        if(true == config[3] && !(request.getPincode() == null))
+        {
+        	Assert.assertEquals(response.getCart().isServiceabilityChecked(),true);
+        	Assert.assertEquals(response.getCart().isInventoryChecked(), true);
+        }
+        else if(true == config[3])
+        {
+			Assert.assertEquals(response.getCart().isInventoryChecked(), true);
+		}
+		Assert.assertEquals(latestProductNonFmcg.get(0), response.getCart().getCartItems()
+				.get(0).getSupc());
+	/*	Assert.assertEquals(latestProductNonFmcg.get(1), response.getCart().getCartItems().get(0)
+				.getVendorCode());*/
+		
+		//changed this number to 2 since Dev needs clarity on what needs to be quantity on calling the same API
+	    Assert.assertEquals(2, response.getCart().getCartItems().get(0)
+				.getQuantity());
+	    
+	    //commenting below lines since maximum quantity can be more than 3
+	  /*  while(itemNo<noOfCartItems)
+	    {
+	    Assert.assertEquals(response.getCart().getCartItems().get(itemNo).getCatalogDTO().getMaxUnits(), 3);
+	    itemNo++;
+	    }*/
+
+	}
+	
+	
+	
+	/* SDL Test method to check cart API with blank cart request */
+
+	@Test(priority=3)
+	public void noItemToAdd() {
+		String cartId = null;
+		InsertItemsRequest request = new InsertItemsRequest();
+		request.setCartId(cartId);
+		List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+		request.setItemDetailsList(detailsList);
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "insertItems");
+		} catch (InvocationTargetException e) {
+			Assert.assertTrue(e.getClass()
+					.equals(InvocationTargetException.class));
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+
+	}
+
+	
+	/** SDL
+     * set itemlist,mobile,samedaydelivery(true).send pincode in request.
+     */
+	
+	    @Test(priority=4,dataProvider = "data-provider-pinCode", dataProviderClass = CartDataProvider.class)
+	    public void sameDayDeliveryTrueWithAndWithoutPincode(String pinCode)
+	    	{
+	        InsertItemsRequest request = new InsertItemsRequest();
+	        ItemDetails detail = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+					Long.parseLong(latestProductNonFmcg.get(2)), 2, null, null, null, null, null, null);
+	        List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+	       // CartTestUtils.insertItemForPrepare();
+	        request.setCartId(filledCartList.getCartId());
+	        detailsList.add(detail);
+	        request.setItemDetailsList(detailsList);
+	        request.setMobileNumber("0909090909090");
+	        request.setSameDayDeliveryEnabled(true);
+	        request.setPincode(pinCode);
+	        request.getConfig().setPlatform(Platform.WEB);
+	        CartMwResponse response = null;
+	        try {
+	            response = (CartMwResponse)cartApiHelper.getSnapDealCartResponse(request, "insertItems");
+	        } catch (InvocationTargetException e) {
+	            // TODO Auto-generated catch block
+	            e.printStackTrace();
+	        }
+	        
+	        if(pinCode == null)
+	        {
+	        Assert.assertEquals(response.getProtocol()!=null,true);
+	        //Assert.assertEquals(response.getCart().getCartId(), request.getCartId());
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getSupc(),latestProductNonFmcg.get(0) );
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getVendorCode(), latestProductNonFmcg.get(1));
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getCatalogDTO().getCatalogIdL().longValue(), Long.parseLong(latestProductNonFmcg.get(2)));
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getQuantity(), 2);
+	        Assert.assertEquals(response.getCart().getMobileNumber(),request.getMobileNumber());
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getSameDayDelivery().getDeliveryDate(), null);
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getNextDayDelivery().getDeliveryDate(), null);
+	        }
+	        
+	        else
+	        {   Assert.assertEquals(response.getProtocol()!=null,true);
+	        	//Assert.assertEquals(response.getCart().getCartItems().get(0).getSameDayDelivery().getDeliveryDate() != null, true);
+		        //Assert.assertEquals(response.getCart().getCartItems().get(0).getNextDayDelivery().getDeliveryDate() != null, true);
+	           //Need to understand these asserts further.
+	        }
+	    	
+	      /*  Assert.assertTrue(response.getCart().getCartItems().get(0).getSameDayDelivery().getDeliveryDate() != null);*/
+
+	    }
+	   
+	    /**
+	     * set itemlist,mobile,samedaydelivery(true).do not send pincode in request.
+	     */
+	    
+	   /* @Test
+	    public void sameDayDeliveryTrueNoPincode() {
+	        InsertItemsRequest request = new InsertItemsRequest();
+	        request.setCartId(cartId);
+	        ItemDetails detail = new ItemDetails(latestProduct.get(0), latestProduct.get(1),
+					Long.parseLong(latestProduct.get(2)), 2, null, null, null, null, null, null);
+	        List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+	        detailsList.add(detail);
+	        request.setItemDetailsList(detailsList);
+	        request.setMobileNumber("8978765678");
+	        request.setSameDayDeliveryEnabled(true);
+	        request.getConfig().setPlatform(Platform.WEB);
+	        CartMwResponse response = null;
+	        
+	        //Mockito check
+	        IIPMSClientService clientService = Mockito.mock(IIPMSClientService.class);
+	        GetInventoryPricingBySUPCSellerRequest request1 = new GetInventoryPricingBySUPCSellerRequest();
+	        GetInventoryPricingBySUPCSellerResponse response1 = new GetInventoryPricingBySUPCSellerResponse();
+	        
+	        try {
+				Mockito.when(clientService.getInventoryPricingBySUPCSeller(request1)).thenReturn(  response1 );
+			} catch (TransportException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+	        try {
+	            response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(request,"insertItems");
+	        } catch (InvocationTargetException e) {
+	            // TODO Auto-generated catch block
+	            e.printStackTrace();
+	        }
+	        
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getSupc(), latestProduct.get(0));
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getVendorCode(), latestProduct.get(1));
+            Assert.assertEquals(response.getCart().getCartItems().get(0).getCatalogDTO().getCatalogIdL().longValue(), Long.parseLong(latestProduct.get(2)));
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getQuantity(), 2);
+	        Assert.assertEquals(response.getCart().getMobileNumber(), "8978765678");
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getSameDayDelivery().getDeliveryDate(), null);
+	        Assert.assertEquals(response.getCart().getCartItems().get(0).getNextDayDelivery().getDeliveryDate(), null);
+
+	    }*/
+	    
+	    /** SDL
+	     * Test method to check different combination of supc/catalog/vendorCode. It should fail for all invalid combinations.
+	     * @param supc
+	     * @param catalog
+	     * @param vendor
+	     */
+	    
+		@Test(priority=5,dataProvider = "data-provider-supcVendorCatalog", dataProviderClass = CartDataProvider.class)
+		public void insertItemWithDifferentCombination(String supc, String vendor, String catalog ) {
+			InsertItemsRequest request = new InsertItemsRequest();
+			request.setCartId(cartId);
+		    ItemDetails detail = new ItemDetails(supc, vendor,
+					Long.parseLong(catalog), 10, null, null, null, null, null, null);
+			List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+			detailsList.add(detail);
+			request.setItemDetailsList(detailsList);
+			request.getConfig().setAutoSellerChange(true);
+			request.getConfig().setLoyaltyPointsApplicable(true);
+			request.getConfig().setPlatform(Platform.WEB);
+			request.getConfig().setPromoApplicable(true);
+			//request.getItemDetailsList().get(0).setStoreFront(StoreFront.NGO_DONATION);
+			CartMwResponse response = null;
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+			} catch (Exception e) {
+				Assert.assertEquals(e.getCause().getClass()!=null,true);
+			}
+
+		}
+		
+		/** SDL
+		 *  Test method to check AutoPromo and same day/Next day delivery.
+		 * @param supc
+		 * @param catalog
+		 * @param vendor
+		 */
+		
+		@Test(priority=6,dataProvider = "data-provider-CartFreeBie", dataProviderClass = CartDataProvider.class)
+		public void insertItemWithAutoPromoDelivery(String supc, String vendor, String catalog, boolean autoPromo  ) {
+			InsertItemsRequest request = new InsertItemsRequest();
+			request.setCartId(cartId);
+		    ItemDetails detail = new ItemDetails(supc, vendor,
+					Long.parseLong(catalog), 2, null, null, null, null, null, null);
+			List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+			detailsList.add(detail);
+			request.setItemDetailsList(detailsList);
+			request.getConfig().setAutoSellerChange(true);
+			request.getConfig().setLoyaltyPointsApplicable(true);
+			request.getConfig().setPlatform(Platform.WEB);
+			request.getConfig().setPromoApplicable(autoPromo);
+			
+			CartMwResponse response = null;
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			
+			}
+			if(autoPromo == true)
+			{
+			
+		    Assert.assertEquals(response.getCart().getCartItems().get(0).getCatalogDTO().isPromoCodeApplicable(),true);
+		    Assert.assertEquals(response.getCart().getCartItems().get(0).getExternalCashback()!=0,true);
+		    Assert.assertEquals(response.getCart().getCartItems().get(0).getInternalCashback()!=0, true);
+		    //Assert.assertEquals(response.getCart().getCartItems().get(0).getPromoValue()!=0, true);
+		    Assert.assertEquals(response.getCart().getCartItems().get(0).getShippingCharges()!=0,true);
+            Assert.assertEquals(!response.getCart().getCartItems().get(0).getFreebieIds().isEmpty(), true);
+			}
+			else
+			{
+				Assert.assertEquals(response.getCart().getCartItems().get(0).getCatalogDTO().isPromoCodeApplicable(),true);
+			    Assert.assertEquals(response.getCart().getCartItems().get(0).getPromoValue()==0, true);
+			}
+				
+		}
+		
+		
+		/** SDL
+		 * Test method to same day/next day delivery and Buy back option/freebie.
+		 * @param supc
+		 * @param catalog
+		 * @param vendor
+		 */
+		
+		@Test(priority=7,dataProvider = "data-provider-CartShippingFreeBie", dataProviderClass = CartDataProvider.class)
+		public void insertItemWithODDNDD(String supc, String catalog, String vendor ) {
+			InsertItemsRequest request = new InsertItemsRequest();
+			
+			
+			request.setCartId(cartId);
+		    ItemDetails detail = new ItemDetails(supc, catalog,
+					Long.parseLong(vendor), 10, null, "buyback1", "buyback2", "buyback3", null, null);
+			List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+			detailsList.add(detail);
+			request.setItemDetailsList(detailsList);
+			request.getConfig().setAutoSellerChange(true);
+			request.getConfig().setLoyaltyPointsApplicable(true);
+			request.getConfig().setPlatform(Platform.WEB);
+			request.getConfig().setPromoApplicable(true);
+			request.getItemDetailsList().get(0).setBuyback(true);
+			request.setPincode("122001");
+			
+			CartMwResponse response = null;
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			
+			}
+			
+		  /* Assert.assertEquals(response.getCart().getCartItems().get(0).getSameDayDelivery()!=null, true);
+		   Assert.assertEquals(response.getCart().getCartItems().get(0).getNextDayDelivery()!=null,true);
+		   Assert.assertEquals(response.getCart().getCartItems().get(0).isBuyBack(), true);*/
+		   
+		}
+		
+		//one product is servicable and other is not
+		
+		/**  SDL
+		 * Test method to check response on 0 inventory, checks soldout and inventory availability.
+		 */
+		
+		@Test(priority =8)
+		public void zeroInventoryTest()
+		{   String message = "Sorry! This product cannot be added to cart. Please click on BuyNow to complete the purchase.";
+			InsertItemsRequest request = new InsertItemsRequest();
+			request.setCartId(null);
+		    ItemDetails detail = new ItemDetails(zeroInventoryFromIpms.get(0), zeroInventoryFromIpms.get(1),
+					Long.parseLong(zeroInventoryFromIpms.get(2)), 2, null, null, null,null, null, null);
+			List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+			detailsList.add(detail);
+			request.setItemDetailsList(detailsList);
+			request.getConfig().setAutoSellerChange(true);
+			request.getConfig().setLoyaltyPointsApplicable(true);
+			request.getConfig().setPlatform(Platform.WEB);
+			request.getConfig().setPromoApplicable(true);
+			
+			CartMwResponse response = null;
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+				
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			
+			}
+			
+			//Need to remove this once we some solution for O2O
+			if(!response.getCart().getMessage().equals(message))
+			/*This has been checked out by dev team, need to validate it once before commenting the below*/
+			{
+				Assert.assertEquals(response.getCart().getCartItems().get(0).getAvailableQuantity(), 0);
+			
+			Assert.assertEquals(response.getCart().getCartItems().get(0).getMaxUnitsAllowed(), 3);
+			//Assert.assertEquals(response.getCart().getCartItems().get(0).getPincodeVerificationResults().isInventoryAvailable(),false);
+		//its failing raised the issue with Dev team
+			}
+		}
+		
+		/**
+		 * SDL
+		 */
+		@Test
+		public void o2oProductTest()
+		{   String message = "Sorry! This product cannot be added to cart. Please click on BuyNow to complete the purchase.";
+			InsertItemsRequest request = new InsertItemsRequest();
+			request.setCartId(null);
+		    ItemDetails detail = new ItemDetails(latestO2OProduct.get(0), latestO2OProduct.get(1),
+					Long.parseLong(latestO2OProduct.get(2)), 2, null, null, null,null, null, null);
+			List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+			detailsList.add(detail);
+			request.setItemDetailsList(detailsList);
+			request.getConfig().setLoyaltyPointsApplicable(true);
+			request.getConfig().setPlatform(Platform.WEB);
+			request.getConfig().setPromoApplicable(true);
+			
+			CartMwResponse response = null;
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+				
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			
+			}
+			
+         
+			Assert.assertTrue((response.getCart().getCartItems().size() == 0), "O2O product should not be added to cart");
+			Assert.assertTrue(!(response.getCart().getCartException().get(0).getMessage().isEmpty()), "Exception should be thrown when we try too add O2O product");
+			Assert.assertTrue(response.getCart().getCartException().get(0).getMessage().equals(message), "improper message is coming when we try to add O2O");
+			Assert.assertTrue(response.getCart().getMessage().equals(message),"improper message is coming when we try to add O2O");
+			
+			}
+		
+		
+		/**
+		 * SDL
+		 */
+		
+		@Test
+	/** Insert Item with different Cart Id */
+		public void insertItemWithDifferentCartId1() {
+			CartMwSRO cart =null;
+			int quantity=1;
+			String pincode="122001";
+			
+			InsertItemsRequest request = new InsertItemsRequest();
+			//InsertAndUpdateItemsRequest request = new InsertAndUpdateItemsRequest();
+			
+			//request.setIfUpdateRequired(true);
+		
+			request.setCartId(null);
+			if(cart != null){
+			request.setCartId(cart.getCartId());
+			}
+		    ItemDetails detail = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+					Long.parseLong(latestProductNonFmcg.get(2)), quantity, null, null, null, null, null, null);
+		    //detail.setStoreFront(StoreFront.NGO_DONATION);
+			List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+			detailsList.add(detail);
+			request.setItemDetailsList(detailsList);
+			
+			request.getConfig().setAutoSellerChange(true);
+			request.getConfig().setLoyaltyPointsApplicable(true);
+			request.getConfig().setPlatform(Platform.WEB);
+			request.getConfig().setPromoApplicable(true);
+			request.setPincode(pincode);
+			//request.getItemDetailsList().get(0).setStoreFront(StoreFront.);
+			
+			CartMwResponse response = null;
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			} 
+			
+			request.setCartId(response.getCart().getCartId());
+			try {
+				
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			}
+			/*int stateTax = response.getCart().getCartItems().get(0).getStateTax();
+			int shipfarCharges = response.getCart().getCartItems().get(0).getShipfarCharges();
+			*/
+			
+			if(cart == null)
+			{
+				Assert.assertEquals(response.getCart().getCartId()!=null, true);
+			}
+			
+			else
+			{
+			Assert.assertEquals(response.getCart().getCartId(), request.getCartId());
+			}
+	        cartId = response.getCart().getCartId();
+	        int noOfCartItems = response.getCart().getCartItems().size();
+	        int itemNo = 0;
+			Assert.assertEquals(latestProductNonFmcg.get(0), response.getCart().getCartItems()
+					.get(0).getSupc());
+			Assert.assertEquals(latestProductNonFmcg.get(1), response.getCart().getCartItems().get(0)
+					.getVendorCode());
+			if(response.getCart().getCartItems().get(0).getAvailableQuantity() >= quantity)
+			{
+		    Assert.assertEquals(quantity, response.getCart().getCartItems().get(0)
+					.getQuantity());
+			}
+			else if((response.getCart().getCartItems().get(0).getAvailableQuantity() < quantity)){
+				//Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() != quantity);
+			}
+		}
+	
+		//SDL
+		
+		
+		
+		
+		@Test(dataProvider="data-validcart-withvalidEmail")
+		/** Insert Item for SDL+ NonFMCGProduct+FMCGbasketType/SDInstant/null + check */
+			public void insertItemWithNonFmcgProductAndFmcgBasketTypeSDL(String basketType) {
+				CartMwSRO cart =null;
+				int quantity=1;
+				String pincode="122001";
+				
+				InsertItemsRequest request = new InsertItemsRequest();
+				com.snapdeal.base.tenant.model.StoreFront s = new com.snapdeal.base.tenant.model.StoreFront();
+				s.setCode("SDL");
+				//InsertAndUpdateItemsRequest request = new InsertAndUpdateItemsRequest();
+				
+				//request.setIfUpdateRequired(true);
+			
+				request.setCartId(null);
+				if(cart != null){
+				request.setCartId(cart.getCartId());
+				}
+			    ItemDetails detail = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+						Long.parseLong(latestProductNonFmcg.get(2)), 2, null, null, null, null, null, null);
+				List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+				detailsList.add(detail);
+				request.setItemDetailsList(detailsList);
+				
+				request.getConfig().setAutoSellerChange(true);
+				request.getConfig().setLoyaltyPointsApplicable(true);
+				request.getConfig().setPlatform(Platform.WEB);
+				request.getConfig().setPromoApplicable(true);
+				request.setPincode(pincode);
+				request.setStoreFront(s);
+				if(basketType == null)
+				{
+					basketType=null;
+				}
+				else if(basketType.equals("FMCG"))
+				request.setBasketType(BasketType.FMCG);
+				else if (basketType.equals("SD_INSTANT"))
+						request.setBasketType(BasketType.SD_INSTANT);
+				
+				
+		
+				
+				CartMwResponse response = null;
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				} 
+				if(basketType!=null && basketType.equals("FMCG")){
+				Assert.assertTrue(response!=null);
+				
+				Assert.assertTrue(response.getCart().getBaskets().get(BasketType.FMCG) == null);
+				Assert.assertEquals(response.getCart().getBaskets().isEmpty(),true);
+				}
+				
+				else if(basketType!=null && basketType.equals("SD_INSTANT")){
+					Assert.assertTrue(response!=null);
+					Assert.assertTrue(response.getCart().getBaskets().isEmpty());
+				}
+				else {
+					
+					Assert.assertTrue(response.getCart().getBaskets().isEmpty());
+					Assert.assertEquals(response.getCart().getCartItems().get(0).getSupc(),latestProductNonFmcg.get(0));
+					Assert.assertTrue(response.getCart().getCartItems() != null);
+					Assert.assertEquals(response.getCart().getStoreFront(), s);
+				}
+	
+	}
+		
+		
+		
+		/** EXL Insert the cart for the first time, Need to add variation for userEmail and withouot userEmail
+		 * Verified
+		 * 
+		 */
+		
+		@Test(priority=1,dataProvider = "data-provider-CartId", dataProviderClass = CartDataProvider.class)
+		public void insertItemWithDifferentCartIdEXL(CartMwSRO cart, int quantity,String pincode) {
+			InsertItemsRequest request = new InsertItemsRequest();
+			/*System.out.println(request1);
+			request.setIfUpdateRequired(true);*/
+			request.setCartId(null);
+			
+			/* Exclusively Changes*/
+			com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+			sf.setCode("EXL");
+			request.setStoreFront(sf);
+			request.setQuickbuy(true);
+			if(cart != null){
+			request.setCartId(cart.getCartId());
+			}
+		    ItemDetails detail = new ItemDetails(latestProduct.get(0), latestProduct.get(1),
+					Long.parseLong(latestProduct.get(2)), 1, null, null, null, null, null, null);
+		    //detail.setStoreFront(StoreFront.NGO_DONATION);
+			List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+			detailsList.add(detail);
+			request.setItemDetailsList(detailsList);
+			
+			request.getConfig().setAutoSellerChange(true);
+			request.getConfig().setLoyaltyPointsApplicable(true);
+			request.getConfig().setPlatform(Platform.WEB);
+			request.getConfig().setPromoApplicable(true);
+			request.setPincode(pincode);
+			//request.getItemDetailsList().get(0).setStoreFront(StoreFront.);
+			
+			CartMwResponse response = null;
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			}
+			
+			request.setCartId(response.getCart().getCartId());
+			
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			}
+			
+			
+			if(cart == null)
+			{
+				Assert.assertEquals(response.getCart().getCartId()!=null, true);
+			}
+			
+			else
+			{
+			Assert.assertEquals(response.getCart().getCartId(), request.getCartId());
+			}
+	        cartId = response.getCart().getCartId();
+	        int noOfCartItems = response.getCart().getCartItems().size();
+	        int itemNo = 0;
+			Assert.assertEquals(latestProduct.get(0), response.getCart().getCartItems()
+					.get(0).getSupc());
+			/*Assert.assertEquals(latestProduct.get(1), response.getCart().getCartItems().get(0)
+					.getVendorCode());*/
+			if(response.getCart().getCartItems().get(0).getAvailableQuantity() >= quantity)
+			{
+		    Assert.assertEquals(quantity, response.getCart().getCartItems().get(0)
+					.getQuantity());
+			}
+			else if((response.getCart().getCartItems().get(0).getAvailableQuantity() < quantity)){
+				//Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() != quantity);
+			}
+
+		}
+		
+		/** EXL All combination of config
+		 * 
+		 * 
+		 */
+		
+		@Test(priority=2,dataProvider = "data-provider-configCode", dataProviderClass = CartDataProvider.class)
+		public void insertItemWithDifferentConfigEXL(Boolean[] config) {
+			InsertItemsRequest request = new InsertItemsRequest();
+			request.setCartId(filledCartList.getCartId());
+			com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+			sf.setCode("EXL");
+			request.setStoreFront(sf);
+		    ItemDetails detail = new ItemDetails(latestProduct.get(0), latestProduct.get(1),
+					Long.parseLong(latestProduct.get(2)), 2, null, null, null, null, null, null);
+			List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+			detailsList.add(detail);
+			request.getConfig().setPromoApplicable(config[0]);
+			request.getConfig().setLoyaltyPointsApplicable(config[1]);
+			request.getConfig().setInventoryCheckApplicable(config[2]);
+			request.getConfig().setAutoSellerChange(config[3]);
+			request.getConfig().setDeliveryDetailsUpdate(config[4]);
+			
+			request.setItemDetailsList(detailsList);
+			request.getConfig().setPlatform(Platform.WEB);
+			CartMwResponse response = null;
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			}
+	        cartId = response.getCart().getCartId();
+	        int noOfCartItems = response.getCart().getCartItems().size();
+	        int itemNo = 0;
+	        if(true == config[3] && !(request.getPincode() == null))
+	        {
+	        	Assert.assertEquals(response.getCart().isServiceabilityChecked(),true);
+	        	Assert.assertEquals(response.getCart().isInventoryChecked(), true);
+	        }
+	        else if(true == config[3])
+	        {
+				Assert.assertEquals(response.getCart().isInventoryChecked(), true);
+			}
+			Assert.assertEquals(latestProduct.get(0), response.getCart().getCartItems()
+					.get(0).getSupc());
+			/*Assert.assertEquals(latestProduct.get(1), response.getCart().getCartItems().get(0)
+					.getVendorCode());*/
+			
+			//changed this number to 2 since Dev needs clarity on what needs to be quantity on calling the same API
+		    Assert.assertEquals(2, response.getCart().getCartItems().get(0)
+					.getQuantity());
+		    
+		    //commenting below lines since maximum quantity can be more than 3
+		  /*  while(itemNo<noOfCartItems)
+		    {
+		    Assert.assertEquals(response.getCart().getCartItems().get(itemNo).getCatalogDTO().getMaxUnits(), 3);
+		    itemNo++;
+		    }*/
+
+		}
+		
+		
+		
+		/* EXL Test method to check cart API with blank cart request */
+
+		@Test(priority=3)
+		public void noItemToAddEXL() {
+			String cartId = null;
+			InsertItemsRequest request = new InsertItemsRequest();
+			com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+			sf.setCode("EXL");
+			request.setStoreFront(sf);
+			request.setCartId(cartId);
+			List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+			request.setItemDetailsList(detailsList);
+			CartMwResponse response = null;
+			try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						request, "insertItems");
+			} catch (InvocationTargetException e) {
+				Assert.assertTrue(e.getClass()
+						.equals(InvocationTargetException.class));
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+			}
+
+		}
+
+		
+		/** EXL
+	     * set itemlist,mobile,samedaydelivery(true).send pincode in request.
+	     */
+		
+		    @Test(priority=4,dataProvider = "data-provider-pinCode", dataProviderClass = CartDataProvider.class)
+		    public void sameDayDeliveryTrueWithAndWithoutPincodeEXL(String pinCode)
+		    	{
+		        InsertItemsRequest request = new InsertItemsRequest();
+		        com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+				sf.setCode("EXL");
+				request.setStoreFront(sf);
+		        ItemDetails detail = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+						Long.parseLong(latestProductNonFmcg.get(2)), 2, null, null, null, null, null, null);
+		        List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+		       // CartTestUtils.insertItemForPrepare();
+		        request.setCartId(filledCartList.getCartId());
+		        detailsList.add(detail);
+		        request.setItemDetailsList(detailsList);
+		        request.setMobileNumber("0909090909090");
+		        request.setSameDayDeliveryEnabled(true);
+		        request.setPincode(pinCode);
+		        request.getConfig().setPlatform(Platform.WEB);
+		        CartMwResponse response = null;
+		        try {
+		            response = (CartMwResponse)cartApiHelper.getSnapDealCartResponse(request, "insertItems");
+		        } catch (InvocationTargetException e) {
+		            // TODO Auto-generated catch block
+		            e.printStackTrace();
+		        }
+		        
+		        if(pinCode == null)
+		        {
+		        Assert.assertEquals(response.getProtocol()!=null,true);
+		        //Assert.assertEquals(response.getCart().getCartId(), request.getCartId());
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getSupc(),latestProductNonFmcg.get(0) );
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getVendorCode(), latestProductNonFmcg.get(1));
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getCatalogDTO().getCatalogIdL().longValue(), Long.parseLong(latestProductNonFmcg.get(2)));
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getQuantity(), 2);
+		        Assert.assertEquals(response.getCart().getMobileNumber(),request.getMobileNumber());
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getSameDayDelivery().getDeliveryDate(), null);
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getNextDayDelivery().getDeliveryDate(), null);
+		        }
+		        
+		        else
+		        {   Assert.assertEquals(response.getProtocol()!=null,true);
+		        	//Assert.assertEquals(response.getCart().getCartItems().get(0).getSameDayDelivery().getDeliveryDate() != null, true);
+			        //Assert.assertEquals(response.getCart().getCartItems().get(0).getNextDayDelivery().getDeliveryDate() != null, true);
+		           //Need to understand these asserts further.
+		        }
+		    	
+		      /*  Assert.assertTrue(response.getCart().getCartItems().get(0).getSameDayDelivery().getDeliveryDate() != null);*/
+
+		    }
+		   
+		    /**
+		     * set itemlist,mobile,samedaydelivery(true).do not send pincode in request.
+		     */
+		    
+		   /* @Test
+		    public void sameDayDeliveryTrueNoPincode() {
+		        InsertItemsRequest request = new InsertItemsRequest();
+		        request.setCartId(cartId);
+		        ItemDetails detail = new ItemDetails(latestProduct.get(0), latestProduct.get(1),
+						Long.parseLong(latestProduct.get(2)), 2, null, null, null, null, null, null);
+		        List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+		        detailsList.add(detail);
+		        request.setItemDetailsList(detailsList);
+		        request.setMobileNumber("8978765678");
+		        request.setSameDayDeliveryEnabled(true);
+		        request.getConfig().setPlatform(Platform.WEB);
+		        CartMwResponse response = null;
+		        
+		        //Mockito check
+		        IIPMSClientService clientService = Mockito.mock(IIPMSClientService.class);
+		        GetInventoryPricingBySUPCSellerRequest request1 = new GetInventoryPricingBySUPCSellerRequest();
+		        GetInventoryPricingBySUPCSellerResponse response1 = new GetInventoryPricingBySUPCSellerResponse();
+		        
+		        try {
+					Mockito.when(clientService.getInventoryPricingBySUPCSeller(request1)).thenReturn(  response1 );
+				} catch (TransportException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+		        try {
+		            response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(request,"insertItems");
+		        } catch (InvocationTargetException e) {
+		            // TODO Auto-generated catch block
+		            e.printStackTrace();
+		        }
+		        
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getSupc(), latestProduct.get(0));
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getVendorCode(), latestProduct.get(1));
+	            Assert.assertEquals(response.getCart().getCartItems().get(0).getCatalogDTO().getCatalogIdL().longValue(), Long.parseLong(latestProduct.get(2)));
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getQuantity(), 2);
+		        Assert.assertEquals(response.getCart().getMobileNumber(), "8978765678");
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getSameDayDelivery().getDeliveryDate(), null);
+		        Assert.assertEquals(response.getCart().getCartItems().get(0).getNextDayDelivery().getDeliveryDate(), null);
+
+		    }*/
+		    
+		    /** EXL
+		     * Test method to check different combination of supc/catalog/vendorCode. It should fail for all invalid combinations.
+		     * @param supc
+		     * @param catalog
+		     * @param vendor
+		     */
+		    
+			@Test(priority=5,dataProvider = "data-provider-supcVendorCatalog", dataProviderClass = CartDataProvider.class)
+			public void insertItemWithDifferentCombinationEXL(String supc, String vendor, String catalog ) {
+				InsertItemsRequest request = new InsertItemsRequest();
+				com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+				sf.setCode("EXL");
+				request.setStoreFront(sf);
+				request.setCartId(cartId);
+			    ItemDetails detail = new ItemDetails(supc, vendor,
+						Long.parseLong(catalog), 10, null, null, null, null, null, null);
+				List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+				detailsList.add(detail);
+				request.setItemDetailsList(detailsList);
+				request.getConfig().setAutoSellerChange(true);
+				request.getConfig().setLoyaltyPointsApplicable(true);
+				request.getConfig().setPlatform(Platform.WEB);
+				request.getConfig().setPromoApplicable(true);
+				//request.getItemDetailsList().get(0).setStoreFront(StoreFront.NGO_DONATION);
+				CartMwResponse response = null;
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+				} catch (Exception e) {
+					Assert.assertEquals(e.getCause().getClass()!=null,true);
+				}
+
+			}
+			
+			/** EXL
+			 *  Test method to check AutoPromo and same day/Next day delivery.
+			 * @param supc
+			 * @param catalog
+			 * @param vendor
+			 */
+			
+			@Test(priority=6,dataProvider = "data-provider-CartFreeBie", dataProviderClass = CartDataProvider.class)
+			public void insertItemWithAutoPromoDeliveryEXL(String supc, String vendor, String catalog, boolean autoPromo  ) {
+				InsertItemsRequest request = new InsertItemsRequest();
+				com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+				sf.setCode("EXL");
+				request.setStoreFront(sf);
+				request.setCartId(cartId);
+			    ItemDetails detail = new ItemDetails(supc, vendor,
+						Long.parseLong(catalog), 10, null, null, null, null, null, null);
+				List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+				detailsList.add(detail);
+				request.setItemDetailsList(detailsList);
+				request.getConfig().setAutoSellerChange(true);
+				request.getConfig().setLoyaltyPointsApplicable(true);
+				request.getConfig().setPlatform(Platform.WEB);
+				request.getConfig().setPromoApplicable(autoPromo);
+				
+				CartMwResponse response = null;
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				
+				}
+				if(autoPromo == true)
+				{
+				
+			    Assert.assertEquals(response.getCart().getCartItems().get(0).getCatalogDTO().isPromoCodeApplicable(),true);
+			    //Assert.assertEquals(response.getCart().getCartItems().get(0).getExternalCashback()!=0,true);
+			    Assert.assertEquals(response.getCart().getCartItems().get(0).getInternalCashback()!=0, true);
+			    //Assert.assertEquals(response.getCart().getCartItems().get(0).getPromoValue()!=0, true);
+			    Assert.assertEquals(response.getCart().getCartItems().get(0).getShippingCharges()!=0,true);
+	            Assert.assertEquals(!response.getCart().getCartItems().get(0).getFreebieIds().isEmpty(), true);
+				}
+				else
+				{
+					Assert.assertEquals(response.getCart().getCartItems().get(0).getCatalogDTO().isPromoCodeApplicable(),true);
+				    Assert.assertEquals(response.getCart().getCartItems().get(0).getPromoValue()==0, true);
+				}
+					
+			}
+			
+			
+			/** EXL
+			 * Test method to same day/next day delivery and Buy back option/freebie.
+			 * @param supc
+			 * @param catalog
+			 * @param vendor
+			 */
+			
+			@Test(priority=7,dataProvider = "data-provider-CartShippingFreeBie", dataProviderClass = CartDataProvider.class)
+			public void insertItemWithODDNDDEXL(String supc, String catalog, String vendor ) {
+				InsertItemsRequest request = new InsertItemsRequest();
+				com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+				sf.setCode("EXL");
+				request.setStoreFront(sf);
+				
+				
+				request.setCartId(cartId);
+			    ItemDetails detail = new ItemDetails(supc, catalog,
+						Long.parseLong(vendor), 10, null, "buyback1", "buyback2", "buyback3", null, null);
+				List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+				detailsList.add(detail);
+				request.setItemDetailsList(detailsList);
+				request.getConfig().setAutoSellerChange(true);
+				request.getConfig().setLoyaltyPointsApplicable(true);
+				request.getConfig().setPlatform(Platform.WEB);
+				request.getConfig().setPromoApplicable(true);
+				request.getItemDetailsList().get(0).setBuyback(true);
+				request.setPincode("122001");
+				
+				CartMwResponse response = null;
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				
+				}
+				
+			 /*  Assert.assertEquals(response.getCart().getCartItems().get(0).getSameDayDelivery()!=null, true);
+			   Assert.assertEquals(response.getCart().getCartItems().get(0).getNextDayDelivery()!=null,true);
+			   Assert.assertEquals(response.getCart().getCartItems().get(0).isBuyBack(), true);*/
+			   
+			}
+			
+			//one product is servicable and other is not
+			
+			/**  EXL
+			 * Test method to check response on 0 inventory, checks soldout and inventory availability.
+			 */
+			
+			@Test(priority =8)
+			public void zeroInventoryTestEXL()
+			{   String message = "Sorry! This product cannot be added to cart. Please click on BuyNow to complete the purchase.";
+				InsertItemsRequest request = new InsertItemsRequest();
+				com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+				sf.setCode("EXL");
+				request.setStoreFront(sf);
+				request.setCartId(null);
+			    ItemDetails detail = new ItemDetails(zeroInventoryFromIpms.get(0), zeroInventoryFromIpms.get(1),
+						Long.parseLong(zeroInventoryFromIpms.get(2)), 2, null, null, null,null, null, null);
+				List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+				detailsList.add(detail);
+				request.setItemDetailsList(detailsList);
+				request.getConfig().setAutoSellerChange(true);
+				request.getConfig().setLoyaltyPointsApplicable(true);
+				request.getConfig().setPlatform(Platform.WEB);
+				request.getConfig().setPromoApplicable(true);
+				
+				CartMwResponse response = null;
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+					
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				
+				}
+				
+				//Need to remove this once we some solution for O2O
+				if(!response.getCart().getMessage().equals(message))
+				/*This has been checked out by dev team, need to validate it once before commenting the below*/
+				{
+					Assert.assertEquals(response.getCart().getCartItems().get(0).getAvailableQuantity(), 0);
+				
+				Assert.assertEquals(response.getCart().getCartItems().get(0).getMaxUnitsAllowed(), 3);
+				//Assert.assertEquals(response.getCart().getCartItems().get(0).getPincodeVerificationResults().isInventoryAvailable(),false);
+			//its failing raised the issue with Dev team
+				}
+			}
+			
+			/**
+			 * EXL
+			 */
+			@Test
+			public void o2oProductTestEXL()
+			{   String message = "Sorry! This product cannot be added to cart. Please click on BuyNow to complete the purchase.";
+				InsertItemsRequest request = new InsertItemsRequest();
+				com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+				sf.setCode("EXL");
+				request.setStoreFront(sf);
+				request.setCartId(null);
+			    ItemDetails detail = new ItemDetails(latestO2OProduct.get(0), latestO2OProduct.get(1),
+						Long.parseLong(latestO2OProduct.get(2)), 2, null, null, null,null, null, null);
+				List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+				detailsList.add(detail);
+				request.setItemDetailsList(detailsList);
+				request.getConfig().setAutoSellerChange(true);
+				request.getConfig().setLoyaltyPointsApplicable(true);
+				request.getConfig().setPlatform(Platform.WEB);
+				request.getConfig().setPromoApplicable(true);
+				
+				CartMwResponse response = null;
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+					
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				
+				}
+				
+	         
+				Assert.assertTrue((response.getCart().getCartItems().size() == 0), "O2O product should not be added to cart");
+				Assert.assertTrue(!(response.getCart().getCartException().get(0).getMessage().isEmpty()), "Exception should be thrown when we try too add O2O product");
+				Assert.assertTrue(response.getCart().getCartException().get(0).getMessage().equals(message), "improper message is coming when we try to add O2O");
+				Assert.assertTrue(response.getCart().getMessage().equals(message),"improper message is coming when we try to add O2O");
+				
+				}
+			
+			
+			/**
+			 * EXL
+			 */
+			
+			@Test
+		/** Insert Item with different Cart Id */
+			public void insertItemWithDifferentCartId1EXL() {
+				CartMwSRO cart =null;
+				int quantity=1;
+				String pincode="122001";
+				
+				InsertItemsRequest request = new InsertItemsRequest();
+				com.snapdeal.base.tenant.model.StoreFront sf = new com.snapdeal.base.tenant.model.StoreFront();
+				sf.setCode("EXL");
+				request.setStoreFront(sf);
+				//InsertAndUpdateItemsRequest request = new InsertAndUpdateItemsRequest();
+				
+				//request.setIfUpdateRequired(true);
+			
+				request.setCartId(null);
+				if(cart != null){
+				request.setCartId(cart.getCartId());
+				}
+			    ItemDetails detail = new ItemDetails(latestProduct.get(0), latestProduct.get(1),
+						Long.parseLong(latestProduct.get(2)), quantity, null, null, null, null, null, null);
+			    //detail.setStoreFront(StoreFront.NGO_DONATION);
+				List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+				detailsList.add(detail);
+				request.setItemDetailsList(detailsList);
+				
+				request.getConfig().setAutoSellerChange(true);
+				request.getConfig().setLoyaltyPointsApplicable(true);
+				request.getConfig().setPlatform(Platform.WEB);
+				request.getConfig().setPromoApplicable(true);
+				request.setPincode(pincode);
+				//request.getItemDetailsList().get(0).setStoreFront(StoreFront.);
+				
+				CartMwResponse response = null;
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				} 
+				
+				request.setCartId(response.getCart().getCartId());
+				try {
+					
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				}
+				/*int stateTax = response.getCart().getCartItems().get(0).getStateTax();
+				int shipfarCharges = response.getCart().getCartItems().get(0).getShipfarCharges();
+				*/
+				
+				if(cart == null)
+				{
+					Assert.assertEquals(response.getCart().getCartId()!=null, true);
+				}
+				
+				else
+				{
+				Assert.assertEquals(response.getCart().getCartId(), request.getCartId());
+				}
+		        cartId = response.getCart().getCartId();
+		        int noOfCartItems = response.getCart().getCartItems().size();
+		        int itemNo = 0;
+				Assert.assertEquals(latestProduct.get(0), response.getCart().getCartItems()
+						.get(0).getSupc());
+				/*Assert.assertEquals(latestProduct.get(1), response.getCart().getCartItems().get(0)
+						.getVendorCode());*/
+				if(response.getCart().getCartItems().get(0).getAvailableQuantity() >= quantity)
+				{
+			    Assert.assertEquals(quantity, response.getCart().getCartItems().get(0)
+						.getQuantity());
+				}
+				else if((response.getCart().getCartItems().get(0).getAvailableQuantity() < quantity)){
+					//Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() != quantity);
+				}
+			}
+
+
+		
+		
+		
+			
+			
+			//FMCG for EXL scenarios
+			
+			@Test(dataProvider="data-validcart-withvalidEmail")
+			/** Insert Item for SDL+ FMCGProduct+FMCGbasketType + check */
+				public void insertItemWithDifferentCartIdsSDL(String basketType) {
+					CartMwSRO cart =null;
+					int quantity=1;
+					String pincode="122001";
+					
+					InsertItemsRequest request = new InsertItemsRequest();
+					com.snapdeal.base.tenant.model.StoreFront s = new com.snapdeal.base.tenant.model.StoreFront();
+					s.setCode("SDL");
+					request.setCartId(null);
+					if(cart != null){
+					request.setCartId(cart.getCartId());
+					}
+				    ItemDetails detail = new ItemDetails(latestFMCGProduct.get(0), latestFMCGProduct.get(1),
+							Long.parseLong(latestFMCGProduct.get(2)), 2, null, null, null, null, null, null);
+					List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+					detailsList.add(detail);
+					request.setItemDetailsList(detailsList);
+					
+					request.getConfig().setAutoSellerChange(true);
+					request.getConfig().setLoyaltyPointsApplicable(true);
+					request.getConfig().setPlatform(Platform.WEB);
+					request.getConfig().setPromoApplicable(true);
+					request.setPincode(pincode);
+					request.setStoreFront(s);
+					if(basketType == null)
+					{
+						basketType=null;
+					}
+					else if(basketType.equals("FMCG"))
+					request.setBasketType(BasketType.FMCG);
+					else if (basketType.equals("SD_INSTANT"))
+							request.setBasketType(BasketType.SD_INSTANT);
+					
+					
+			
+					
+					CartMwResponse response = null;
+					try {
+						response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+								request, "insertItems");
+					} catch (InvocationTargetException 	e) {
+						e.printStackTrace();
+					} 
+					if(basketType!=null && basketType.equals("FMCG")){
+					Assert.assertTrue(response!=null);
+					
+					Assert.assertTrue(response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems() != null);
+					Assert.assertEquals(response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems().get(0).getSupc(), "SDL102628883");
+					Assert.assertTrue((response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems().get(0).getSupc()).equals("SDL102628883"));
+					}
+					
+					else if(basketType!=null && basketType.equals("SD_INSTANT")){
+						Assert.assertTrue(response.getCart().getBaskets().isEmpty());
+					}
+					else {
+						Assert.assertTrue(response!=null);
+						Assert.assertTrue(response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems() != null);
+						Assert.assertEquals(response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems().get(0).getSupc(), "SDL102628883");
+						Assert.assertTrue((response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems().get(0).getSupc()).equals("SDL102628883"));
+					}
+		
+		}
+			
+			//non fmcg with EXL
+			
+			@Test(dataProvider="data-validcart-withvalidEmail")
+			/** Insert Item for Exclusively+ NonFMCGProduct+FMCGbasketType/SDInstant/null + check */
+				public void insertItemWithNonFmcgProductAndFmcgBasketType(String basketType) {
+					CartMwSRO cart =null;
+					int quantity=1;
+					String pincode="122001";
+					
+					InsertItemsRequest request = new InsertItemsRequest();
+					request.setUserEmail(StringUtils.getRandom(5)+"@gmail.com");
+					com.snapdeal.base.tenant.model.StoreFront s = new com.snapdeal.base.tenant.model.StoreFront();
+					s.setCode("SDL");
+					//InsertAndUpdateItemsRequest request = new InsertAndUpdateItemsRequest();
+					
+					//request.setIfUpdateRequired(true);
+				
+					request.setCartId(null);
+					if(cart != null){
+					request.setCartId(cart.getCartId());
+					}
+				    ItemDetails detail = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+							Long.parseLong(latestProductNonFmcg.get(2)), 2, null, null, null, null, null, null);
+					List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+					detailsList.add(detail);
+					request.setItemDetailsList(detailsList);
+					
+					request.getConfig().setAutoSellerChange(true);
+					request.getConfig().setLoyaltyPointsApplicable(true);
+					request.getConfig().setPlatform(Platform.WEB);
+					request.getConfig().setPromoApplicable(true);
+					request.setPincode(pincode);
+					request.setStoreFront(s);
+					if(basketType == null)
+					{
+						basketType=null;
+					}
+					else if(basketType.equals("FMCG"))
+					request.setBasketType(BasketType.FMCG);
+					else if (basketType.equals("SD_INSTANT"))
+							request.setBasketType(BasketType.SD_INSTANT);
+					
+					
+			
+					
+					CartMwResponse response = null;
+					try {
+						response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+								request, "insertItems");
+					} catch (InvocationTargetException 	e) {
+						e.printStackTrace();
+					} 
+					if(basketType!=null && basketType.equals("FMCG")){
+					Assert.assertTrue(response!=null);
+					
+					Assert.assertTrue(response.getCart().getBaskets().get(BasketType.FMCG) == null);
+					Assert.assertEquals(response.getCart().getBaskets().isEmpty(),true);
+					}
+					
+					else if(basketType!=null && basketType.equals("SD_INSTANT")){
+						Assert.assertTrue(response!=null);
+						Assert.assertTrue(response.getCart().getBaskets().isEmpty());
+					}
+					else {
+						
+						Assert.assertTrue(response.getCart().getBaskets().isEmpty());
+						Assert.assertEquals(response.getCart().getCartItems().get(0).getSupc(),latestProductNonFmcg.get(0));
+						Assert.assertTrue(response.getCart().getCartItems() != null);
+						Assert.assertEquals(response.getCart().getStoreFront(), s);
+					}
+		
+		}
+			
+			
+			
+			
+			
+			
+			@Test(dataProvider="data-validcart-withvalidEmail")
+			/** Insert Item for Exclusively+ FMCGProduct+FMCGbasketType + check */
+				public void insertItemWithDifferentCartIds(String basketType) {
+					CartMwSRO cart =null;
+					int quantity=1;
+					String pincode="122001";
+					
+					InsertItemsRequest request = new InsertItemsRequest();
+					com.snapdeal.base.tenant.model.StoreFront s = new com.snapdeal.base.tenant.model.StoreFront();
+					s.setCode("EXL");
+					//InsertAndUpdateItemsRequest request = new InsertAndUpdateItemsRequest();
+					
+					//request.setIfUpdateRequired(true);
+				
+					request.setCartId(null);
+					if(cart != null){
+					request.setCartId(cart.getCartId());
+					}
+				    ItemDetails detail = new ItemDetails("SDL102628883", "e16a2a",
+							Long.parseLong("642839501053"), 2, null, null, null, null, null, null);
+					List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+					detailsList.add(detail);
+					request.setItemDetailsList(detailsList);
+					
+					request.getConfig().setAutoSellerChange(true);
+					request.getConfig().setLoyaltyPointsApplicable(true);
+					request.getConfig().setPlatform(Platform.WEB);
+					request.getConfig().setPromoApplicable(true);
+					request.setPincode(pincode);
+					request.setStoreFront(s);
+					if(basketType == null)
+					{
+						basketType=null;
+					}
+					else if(basketType.equals("FMCG"))
+					request.setBasketType(BasketType.FMCG);
+					else if (basketType.equals("SD_INSTANT"))
+							request.setBasketType(BasketType.SD_INSTANT);
+					
+					
+			
+					
+					CartMwResponse response = null;
+					try {
+						response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+								request, "insertItems");
+					} catch (InvocationTargetException 	e) {
+						e.printStackTrace();
+					} 
+					if(basketType!=null && basketType.equals("FMCG")){
+					Assert.assertTrue(response!=null);
+					
+					Assert.assertTrue(response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems() != null);
+					Assert.assertEquals(response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems().get(0).getSupc(), "SDL102628883");
+					Assert.assertTrue((response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems().get(0).getSupc()).equals("SDL102628883"));
+					}
+					
+					else if(basketType!=null && basketType.equals("SD_INSTANT")){
+						Assert.assertTrue(response.getCart().getBaskets().isEmpty());
+					}
+					else {
+						Assert.assertTrue(response!=null);
+						Assert.assertTrue(response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems() != null);
+						Assert.assertEquals(response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems().get(0).getSupc(), "SDL102628883");
+						Assert.assertTrue((response.getCart().getBaskets().get(BasketType.FMCG).getBasketItems().get(0).getSupc()).equals("SDL102628883"));
+					}
+		
+		}
+			
+			
+		/** Scenarios for soft bundling */	
+			@Test
+			public void insertItemForSoftBundling() {
+				InsertItemsRequest request = new InsertItemsRequest();
+				
+				request.setCartId(null);
+				
+				request.setQuickbuy(true);
+				
+			    ItemDetails detailForParent = new ItemDetails(latestParentSoftProduct.get(0), latestParentSoftProduct.get(1),
+						Long.parseLong(latestParentSoftProduct.get(2)), 1, null, null, null, null, null, null);
+			    detailForParent.setBundleId(latestParentSoftProduct.get(0));
+			    detailForParent.setBundleType("SOFT");
+			    detailForParent.setHeroItem(true);
+			    
+			    
+			    ItemDetails detailForChild = new ItemDetails(latestChildSoftProduct.get(0), latestChildSoftProduct.get(1),
+						Long.parseLong(latestChildSoftProduct.get(2)), 1, null, null, null, null, null, null);
+			    detailForChild.setBundleId(latestParentSoftProduct.get(0));
+			    detailForChild.setBundleType("SOFT");
+			    detailForChild.setHeroItem(false);
+			    
+			    //detail.setStoreFront(StoreFront.NGO_DONATION);
+				List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+				detailsList.add(detailForParent);
+				detailsList.add(detailForChild);
+				request.setItemDetailsList(detailsList);
+				
+				request.getConfig().setAutoSellerChange(true);
+				request.getConfig().setLoyaltyPointsApplicable(true);
+				request.getConfig().setPlatform(Platform.WEB);
+				request.getConfig().setPromoApplicable(true);
+				request.setPincode("122012");
+				//request.getItemDetailsList().get(0).setStoreFront(StoreFront.);
+				
+				CartMwResponse response = null;
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				}
+				
+		       Assert.assertTrue("SOFT".equals(response.getCart().getCartItems().get(0).getBundleType()),"Bundle type is coming properly in response");
+		       Assert.assertTrue(response.getCart().getCartItems().get(0).getChildItems()!=null,"child items should not be null");
+		       Assert.assertTrue(latestChildSoftProduct.get(0).equals(response.getCart().getCartItems().get(0).getChildItems().get(0).getSupc()));
+		       Assert.assertTrue("SOFT".equals(response.getCart().getCartItems().get(0).getBundleType()),"Bundle type should be soft for chiild product"); 
+
+			}
+			
+			
+			@Test
+			public void insertItemForSoftBundlingForExisitngParent() {
+				InsertItemsRequest request = new InsertItemsRequest();
+				String email = StringUtils.getRandom(5)+"@gmail.com";
+				
+				request.setCartId(null);
+				
+				request.setQuickbuy(true);
+				request.setUserEmail(email);
+				
+			    ItemDetails detailForParent = new ItemDetails(latestParentSoftProduct.get(0), latestParentSoftProduct.get(1),
+						Long.parseLong(latestParentSoftProduct.get(2)), 1, null, null, null, null, null, null);
+			    detailForParent.setBundleId(latestParentSoftProduct.get(0));
+			    detailForParent.setBundleType("SOFT");
+			    detailForParent.setHeroItem(true);
+			    
+			    
+			    ItemDetails detailForChild = new ItemDetails(latestChildSoftProduct.get(0), latestChildSoftProduct.get(1),
+						Long.parseLong(latestChildSoftProduct.get(2)), 1, null, null, null, null, null, null);
+			    detailForChild.setBundleId(latestParentSoftProduct.get(0));
+			    detailForChild.setBundleType("SOFT");
+			    detailForChild.setHeroItem(false);
+			    
+			    //detail.setStoreFront(StoreFront.NGO_DONATION);
+				List<ItemDetails> detailsList = new ArrayList<ItemDetails>();
+				detailsList.add(detailForParent);
+				detailsList.add(detailForChild);
+				request.setItemDetailsList(detailsList);
+				
+				request.getConfig().setAutoSellerChange(true);
+				request.getConfig().setLoyaltyPointsApplicable(true);
+				request.getConfig().setPlatform(Platform.WEB);
+				request.getConfig().setPromoApplicable(true);
+				request.setPincode("122012");
+				//request.getItemDetailsList().get(0).setStoreFront(StoreFront.);
+				
+				CartMwResponse response = null;
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				}
+				
+		       Assert.assertTrue("SOFT".equals(response.getCart().getCartItems().get(0).getBundleType()),"Bundle type is coming properly in response");
+		       Assert.assertTrue(response.getCart().getCartItems().get(0).getChildItems()!=null,"child items should not be null");
+		       Assert.assertTrue(latestChildSoftProduct.get(0).equals(response.getCart().getCartItems().get(0).getChildItems().get(0).getSupc()));
+		       Assert.assertTrue("SOFT".equals(response.getCart().getCartItems().get(0).getBundleType()),"Bundle type should be soft for chiild product"); 
+
+		       ItemDetails detailForChild2 = new ItemDetails(latestChildSoftProduct.get(3), latestChildSoftProduct.get(4),
+						Long.parseLong(latestChildSoftProduct.get(5)), 1, null, null, null, null, null, null);
+			    detailForChild2.setBundleId(latestParentSoftProduct.get(0));
+			    detailForChild2.setBundleType("SOFT");
+			    detailForChild2.setHeroItem(false);
+			    detailsList.remove(1);
+			    detailsList.add(detailForChild2);
+			    request.setItemDetailsList(detailsList);
+			    
+
+				try {
+					response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+							request, "insertItems");
+				} catch (InvocationTargetException 	e) {
+					e.printStackTrace();
+				}
+				
+			   
+			   
+			   
+		       Assert.assertTrue("SOFT".equals(response.getCart().getCartItems().get(0).getBundleType()),"Bundle type is coming properly in response");
+		       Assert.assertTrue(response.getCart().getCartItems().get(0).getChildItems()!=null,"child items should not be null");
+		       Assert.assertTrue(latestChildSoftProduct.get(3).equals(response.getCart().getCartItems().get(0).getChildItems().get(0).getSupc()));
+		       Assert.assertTrue("SOFT".equals(response.getCart().getCartItems().get(0).getChildItems().get(0).getBundleType()),"Bundle type should be soft for chiild product"); 
+			    
+		       String cartId = response.getCart().getCartId();
+		       NonFrozenCartUsingEmailRequest requestToFetchCart =  new NonFrozenCartUsingEmailRequest();
+		       requestToFetchCart.setEmail(email);
+		       requestToFetchCart.setCookieCartId(cartId);
+		       requestToFetchCart.getConfig().setLoyaltyPointsApplicable(true);
+		       requestToFetchCart.getConfig().setPromoApplicable(true);
+		       requestToFetchCart.getConfig().setPlatform(Platform.WEB);
+		       
+		       
+		   	try {
+				response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+						requestToFetchCart, "getNonFrozenCartUsingEmail");
+			} catch (InvocationTargetException 	e) {
+				e.printStackTrace();
+			}
+		    Assert.assertTrue("SOFT".equals(response.getCart().getCartItems().get(0).getBundleType()),"Bundle type is coming properly in response");
+		    Assert.assertTrue(response.getCart().getCartItems().get(0).getChildItems()!=null,"child items should not be null");
+		    //Assert.assertTrue(latestChildSoftProduct.get(3).equals(response.getCart().getCartItems().get(0).getChildItems().get(1).getSupc()));
+		    //Assert.assertTrue("SOFT".equals(response.getCart().getCartItems().get(0).getChildItems().get(1).getBundleType()),"Bundle type should be soft for chiild product"); 
+			    
+		       
+			}
+			
+			
+			
+    /** Test method to address id to be released in first week of June
+     *  test method to insertItem
+     */
+	@Test(dataProvider="data-different-Platform")
+    public void insertCartTestForAddressId(String platform){
+    	Random r = new Random();
+    	int addressId = r.nextInt(500);
+    	StoreFront sf = new StoreFront();
+    	sf.setCode(platform);
+    	InsertItemsRequest request = new InsertItemsRequest();
+    	  ItemDetails details = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+					Long.parseLong(latestProductNonFmcg.get(2)), 1, null, null, null, null, null, null);
+    	  List<ItemDetails> itemDetailsList = new ArrayList<ItemDetails>();
+    	  itemDetailsList.add(details);
+    	  request.setItemDetailsList(itemDetailsList);
+    	  request.setAddressId(addressId);
+    	  request.setStoreFront(sf);
+    	  request.setPincode("122016");;
+    	  CartMwResponse response= null;
+    	
+    	try { 
+			 response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "insertItems");
+		} catch (InvocationTargetException e) {
+			System.out.println("Exception in insert response of insertCartTestForAddressId");
+			e.printStackTrace();
+		}
+    	Assert.assertTrue(response.getCart().getOrderInfo().getAddressId() == request.getAddressId(),"request address should be same as response addressId");
+    	
+    	//Now call getCartUsingId to check either adddressId is saved in Database or not
+    	
+    	GetCartUsingIdRequest requestForGetCartUsingId = new GetCartUsingIdRequest();
+    	requestForGetCartUsingId.setCartId(response.getCart().getCartId());
+    	requestForGetCartUsingId.setStoreFront(sf);
+    	requestForGetCartUsingId.setPincode("122016");
+    	CartMwResponse responseForGetCartUsingId = null;
+    	 try {
+			 responseForGetCartUsingId = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					requestForGetCartUsingId, "getCartUsingId");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	 Assert.assertTrue(responseForGetCartUsingId.getCart().getOrderInfo().getAddressId() == request.getAddressId(),"address id should be saved in database");
+    	
+    }
+		
+			
+	 /** Test method to address id to be released in first week of June
+     *  test method to insertItem
+     */
+	@Test(dataProvider="data-different-Platform")
+    public void insertCartTestForAddressId_FMCG(String platform){
+    	Random r = new Random();
+    	int addressId = r.nextInt(500);
+    	StoreFront sf = new StoreFront();
+    	sf.setCode(platform);
+    	InsertItemsRequest request = new InsertItemsRequest();
+    	  ItemDetails details = new ItemDetails(latestFMCGProduct.get(0), latestFMCGProduct.get(1),
+					Long.parseLong(latestFMCGProduct.get(2)), 1, null, null, null, null, null, null);
+    	  List<ItemDetails> itemDetailsList = new ArrayList<ItemDetails>();
+    	  itemDetailsList.add(details);
+    	  request.setItemDetailsList(itemDetailsList);
+    	  request.setAddressId(addressId);
+    	  request.setStoreFront(sf);
+    	  request.setPincode("122016");;
+    	 // request.setBasketType(BasketType.FMCG);
+    	  CartMwResponse response= null;
+    	
+    	try { 
+			 response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "insertItems");
+		} catch (InvocationTargetException e) {
+			System.out.println("Exception in insert response of insertCartTestForAddressId");
+			e.printStackTrace();
+		}
+    	Assert.assertTrue(response.getCart().getOrderInfo().getAddressId() == request.getAddressId(),"request address should be same as response addressId");
+    	
+    	//Now call getCartUsingId to check either adddressId is saved in Database or not
+    	
+    	GetCartUsingIdRequest requestForGetCartUsingId = new GetCartUsingIdRequest();
+    	requestForGetCartUsingId.setCartId(response.getCart().getCartId());
+    	requestForGetCartUsingId.setStoreFront(sf);
+    	requestForGetCartUsingId.setPincode("122016");
+    	CartMwResponse responseForGetCartUsingId = null;
+    	 try {
+			 responseForGetCartUsingId = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					requestForGetCartUsingId, "getCartUsingId");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	 Assert.assertTrue(responseForGetCartUsingId.getCart().getOrderInfo().getAddressId() == request.getAddressId(),"address id should be saved in database");
+    	
+    }
+	
+	
+	 /** Test method to address id to be released in first week of June
+     *  test method to insertItem
+     */
+	@Test(dataProvider="data-different-Platform")
+    public void insertCartTestForAddressId_MergeScenario(String platform){
+    	Random r = new Random();
+    	int addressId = r.nextInt(500);
+    	StoreFront sf = new StoreFront();
+    	sf.setCode(platform);
+    	InsertItemsRequest request = new InsertItemsRequest();
+    	  ItemDetails details = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+					Long.parseLong(latestProductNonFmcg.get(2)), 1, null, null, null, null, null, null);
+    	  List<ItemDetails> itemDetailsList = new ArrayList<ItemDetails>();
+    	  itemDetailsList.add(details);
+    	  request.setItemDetailsList(itemDetailsList);
+    	  request.setAddressId(addressId);
+    	  request.setUserEmail(StringUtils.getRandom(4)+"@snapdeal.com");
+    	  request.setStoreFront(sf);
+    	  request.setPincode("122016");;
+    	  CartMwResponse response= null;
+    	
+    	try { 
+			 response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "insertItems");
+		} catch (InvocationTargetException e) {
+			System.out.println("Exception in insert response of insertCartTestForAddressId");
+			e.printStackTrace();
+		}
+    	Assert.assertTrue(response.getCart().getOrderInfo().getAddressId() == request.getAddressId(),"request address should be same as response addressId");
+    	//call with Guest user and 0 address id
+    	
+    	
+    	InsertItemsRequest request2 = new InsertItemsRequest();
+    	  ItemDetails details2 = new ItemDetails(secondlatestProductNonFmcg.get(0), secondlatestProductNonFmcg.get(1),
+					Long.parseLong(secondlatestProductNonFmcg.get(2)), 1, null, null, null, null, null, null);
+    	  List<ItemDetails> itemDetailsList2 = new ArrayList<ItemDetails>();
+    	  itemDetailsList2.add(details2);
+    	  request2.setItemDetailsList(itemDetailsList2);
+    	  request2.setStoreFront(sf);
+    	  request2.setPincode("122016");;
+    	  CartMwResponse response2= null;
+    	
+    	try { 
+			 response2 = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request2, "insertItems");
+		} catch (InvocationTargetException e) {
+			System.out.println("Exception in insert response of insertCartTestForAddressId");
+			e.printStackTrace();
+		}
+    	Assert.assertTrue(response2.getCart().getOrderInfo() == null,"request address should be same as response addressId");
+    	
+    	//Now call getCartUsingId to check either adddressId is saved in Database or not
+    	
+    	NonFrozenCartUsingEmailRequest requestForGetCartUsingId = new NonFrozenCartUsingEmailRequest();
+    	requestForGetCartUsingId.setCookieCartId(response2.getCart().getCartId());
+    	requestForGetCartUsingId.setStoreFront(sf);
+    	requestForGetCartUsingId.setPincode("122016");
+    	requestForGetCartUsingId.setEmail(response.getCart().getUserEmail());
+    	CartMwResponse responseForGetCartUsingId = null;
+    	 try {
+			 responseForGetCartUsingId = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					requestForGetCartUsingId, "getNonFrozenCartUsingEmail");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	 Assert.assertTrue(responseForGetCartUsingId.getCart().getOrderInfo().getAddressId() == request.getAddressId(),"address id should be saved in database");
+    	 Assert.assertTrue(responseForGetCartUsingId.getCart().getUserEmail().equals(response.getCart().getUserEmail()), "Cart is not merged with email id");
+    }
+		
+	
+	
+	
+	 /** Test method to address id to be released in first week of June
+     *  test method to insertItem
+     */
+	@Test(dataProvider="data-different-Platform")
+    public void insertCartTestForAddressId_SameCartIdUpdate(String platform){
+    	Random r = new Random();
+    	int addressId = r.nextInt(500);
+    	StoreFront sf = new StoreFront();
+    	sf.setCode(platform);
+    	InsertItemsRequest request = new InsertItemsRequest();
+    	  ItemDetails details = new ItemDetails(latestProductNonFmcg.get(0), latestProductNonFmcg.get(1),
+					Long.parseLong(latestProductNonFmcg.get(2)), 1, null, null, null, null, null, null);
+    	  List<ItemDetails> itemDetailsList = new ArrayList<ItemDetails>();
+    	  itemDetailsList.add(details);
+    	  request.setItemDetailsList(itemDetailsList);
+    	  request.setAddressId(addressId);
+    	  request.setUserEmail(StringUtils.getRandom(4)+"@snapdeal.com");
+    	  request.setStoreFront(sf);
+    	  request.setPincode("122016");;
+    	  CartMwResponse response= null;
+    	
+    	try { 
+			 response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "insertItems");
+		} catch (InvocationTargetException e) {
+			System.out.println("Exception in insert response of insertCartTestForAddressId");
+			e.printStackTrace();
+		}
+    	Assert.assertTrue(response.getCart().getOrderInfo().getAddressId() == request.getAddressId(),"request address should be same as response addressId");
+    	//call with Guest user and 0 address id
+    	
+    	
+    	InsertItemsRequest request2 = new InsertItemsRequest();
+    	int addressId2 = r.nextInt(500);
+    	  ItemDetails details2 = new ItemDetails(secondlatestProductNonFmcg.get(0), secondlatestProductNonFmcg.get(1),
+					Long.parseLong(secondlatestProductNonFmcg.get(2)), 1, null, null, null, null, null, null);
+    	  List<ItemDetails> itemDetailsList2 = new ArrayList<ItemDetails>();
+    	  itemDetailsList2.add(details2);
+    	  request2.setItemDetailsList(itemDetailsList2);
+    	  request2.setCartId(response.getCart().getCartId());
+    	  request2.setStoreFront(sf);
+    	  request2.setPincode("122016");
+    	  request2.setAddressId(addressId2);
+    	  request2.setUserEmail(request.getUserEmail());
+    	  CartMwResponse response2= null;
+    	
+    	try { 
+			 response2 = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request2, "insertItems");
+		} catch (InvocationTargetException e) {
+			System.out.println("Exception in insert response of insertCartTestForAddressId");
+			e.printStackTrace();
+		}
+    	Assert.assertTrue(response2.getCart().getOrderInfo().getAddressId() == request2.getAddressId(),"request address should be same as response addressId");
+    	
+    	//Now call getCartUsingId to check either adddressId is saved in Database or not
+    	
+    	NonFrozenCartUsingEmailRequest requestForGetCartUsingId = new NonFrozenCartUsingEmailRequest();
+    	requestForGetCartUsingId.setCookieCartId(response2.getCart().getCartId());
+    	requestForGetCartUsingId.setStoreFront(sf);
+    	requestForGetCartUsingId.setPincode("122016");
+    	requestForGetCartUsingId.setEmail(response2.getCart().getUserEmail());
+    	CartMwResponse responseForGetCartUsingId = null;
+    	 try {
+			 responseForGetCartUsingId = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					requestForGetCartUsingId, "getNonFrozenCartUsingEmail");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	 Assert.assertTrue(responseForGetCartUsingId.getCart().getOrderInfo().getAddressId() == request2.getAddressId(),"address id should be saved in database");
+    	 Assert.assertTrue(responseForGetCartUsingId.getCart().getUserEmail().equals(response.getCart().getUserEmail()), "Cart is not merged with email id");
+    }
+		
+			
+			
+/**
+ * O2O Servicibility release
+ */
+	
+		@Test(dataProvider="data-different-Platform")
+		public void O2OServicibility(String platform) { 
+			CartMwServiceResponse response = null;
+			StoreFront sf = new StoreFront();
+	    	sf.setCode(platform);
+	    	InsertItemsRequest request = new InsertItemsRequest();
+	    	  ItemDetails details = new ItemDetails(latestO2OProduct.get(0), latestO2OProduct.get(1),
+						Long.parseLong(latestO2OProduct.get(2)), 1, null, null, null, null, null, null);
+	    	  List<ItemDetails> itemDetailsList = new ArrayList<ItemDetails>();
+	    	  itemDetailsList.add(details);
+	    	  request.setItemDetailsList(itemDetailsList);
+	    	  request.setQuickbuy(true);
+	    	  try { 
+	 			 response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+	 					request, "insertItems");
+	 		} catch (InvocationTargetException e) {
+	 			System.out.println("Exception in insert response of insertCartTestForAddressId");
+	 			e.printStackTrace();
+	 		}
+			
+		}
+	/**
+	 * @return
+	 */
+	@DataProvider(name = "data-validcart-withvalidEmail")
+	private Object[][] validCartWithValidEmail() {
+
+		return new Object[][] { { null }, { "FMCG" }, { "SD_INSTANT" } };
+	}
+	
+	
+	@DataProvider(name="data-different-Platform")
+	private Object[][] returnDifferentPlatforms(){
+	
+		return new Object[][]{{"SDL"},{"EXL"}};
+}
+			
+}
+
+

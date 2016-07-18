@@ -1,0 +1,169 @@
+/**
+ * 
+ */
+package com.snapdeal.cartservice.common.service.impl;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.snapdeal.base.cache.CacheManager;
+import com.snapdeal.base.exception.InvalidConfigurationException;
+import com.snapdeal.base.exception.InvalidFormatException;
+import com.snapdeal.cartservice.common.Constants;
+import com.snapdeal.cartservice.common.service.ICartPropertiesReader;
+import com.snapdeal.cartservice.common.service.ICartWebServiceStartup;
+import com.snapdeal.cartservice.service.cart.IStartupService;
+import com.snapdeal.concurrent.cache.SystemPropertiesCache;
+
+/**
+ * @author fanendra
+ */
+@Service("cartWebServiceStartupImpl")
+public class CartWebServiceStartupImpl implements ICartWebServiceStartup {
+    /**
+     * Logger for this class.
+     */
+    private static final Logger             LOG                        = LoggerFactory.getLogger(CartWebServiceStartupImpl.class);
+    /**
+     * Default path for reading file based configurations.
+     */
+    private static final String             DEFAULT_CONFIG_FILE_PATH   = "api.properties";
+    /**
+     * Scheduled executor for reloading cache
+     */
+    private static ScheduledExecutorService SCHEDULED_EXECUTOR_SERVICE = new ScheduledThreadPoolExecutor(1);
+    /**
+     * Flag to check whether cache reload was properly done.
+     */
+    private final AtomicBoolean             cacheReloadStatus          = new AtomicBoolean(false);
+
+    @Autowired
+    private ICartPropertiesReader           propertiesReader;
+
+    @Autowired
+    private IStartupService                 startupService;
+
+    @Override
+    public void initReloadCache() {
+        SystemPropertiesCache cache = CacheManager.getInstance().getCache(SystemPropertiesCache.class);
+        if (cache != null && cache.isReloadCacheSelfEnabled()) {
+            long cacheReloadTime = Long.parseLong(cache.getProperty("cache.reload.time", "" + Constants.DEFAULT_RELOAD_CACHE_INTERVAL));
+            final long failureRetryTime = Long.parseLong(cache.getProperty("cache.reload.retry.time", "" + Constants.CACHE_RELOAD_FAILED_RETRY_TIME));
+            SCHEDULED_EXECUTOR_SERVICE.schedule(new Runnable() {
+                @Override
+                public void run() {
+                    while (!cacheReloadStatus.get()) {
+                        try {
+                            reload();
+                            cacheReloadStatus.compareAndSet(cacheReloadStatus.get(), true);
+                        } catch (Exception e) {
+                            LOG.error("Failed to reload cache. Retrying after {} minutes", "" + failureRetryTime);
+                            cacheReloadStatus.compareAndSet(cacheReloadStatus.get(), false);
+                            sleep(failureRetryTime, TimeUnit.MINUTES);
+                        }
+                    }
+                }
+            }, cacheReloadTime, TimeUnit.MINUTES);
+        }
+    }
+
+    /**
+     * @param time
+     * @param timeUnit
+     */
+    private final void sleep(long time, TimeUnit timeUnit) {
+        try {
+            Thread.sleep(timeUnit.convert(time, TimeUnit.MILLISECONDS));
+        } catch (InterruptedException e) {
+        }
+    }
+
+    @Override
+    public void loadAllAtStartup() {
+        loadSystemFileProperties();
+        // Put any reload after this line
+    }
+
+    @Override
+    public void reload() {
+        loadSystemFileProperties();
+        // Put any reload after this line
+        startupService.loadApiClientConfig();
+    }
+
+    /**
+     * @param fileName
+     * @throws InvalidFormatException
+     * @throws InvalidConfigurationException
+     * @throws IllegalArgumentException
+     * @throws IOException
+     */
+    @Override
+    public void loadSystemFilePropertiesCache(String fileName) throws InvalidFormatException, InvalidConfigurationException, IllegalArgumentException, IOException {
+        LOG.info("Loading System Properties Cache from file {}....", fileName);
+        Map<String, Object> map = propertiesReader.getMap(fileName);
+
+        // Update all the scalar values to SystemPropertiesCache
+        SystemPropertiesCache spc = CacheManager.getInstance().getCache(SystemPropertiesCache.class);
+        if (spc == null) {
+            spc = new SystemPropertiesCache();
+        }
+        String value = null;
+        for (String key : map.keySet()) {
+            if (map.containsKey(key.toLowerCase())) {
+                if (!(map.get(key.toLowerCase()) instanceof Collection<?>)) {
+                    value = (String) map.get(key.toLowerCase());
+                } else {
+                    throw new InvalidConfigurationException("The property passed is a collection");
+                }
+            }
+            if (value != null) {
+                spc.addProperty(key, value);
+            }
+        }
+        CacheManager.getInstance().setCache(spc);
+        LOG.info("System Properties Cache from file {} loaded succesfully ...", fileName);
+    }
+
+    /**
+     * 
+     */
+    @Override
+    public void loadSystemFileProperties() {
+        String configFilePath = System.getProperty("config.file.path", DEFAULT_CONFIG_FILE_PATH);
+        try {
+            this.loadSystemFilePropertiesCache(configFilePath);
+        } catch (InvalidFormatException e) {
+            LOG.error("System configuration file is in wrong format...", e);
+        } catch (InvalidConfigurationException e) {
+            LOG.error("System configuration file is not correctly configured...", e);
+        } catch (IllegalArgumentException e) {
+            LOG.error("System configuration file not present... Properties will only be loaded from DB...");
+        } catch (IOException e) {
+            LOG.error("Exception while reading system config file");
+        }
+    }
+
+    /**
+     * Adding a shut down hook so that Thread pool should be destroyed after recieving a CTRL+C or kill command.
+     */
+    public void attachShutDownHook() {
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                SCHEDULED_EXECUTOR_SERVICE.shutdownNow();
+            }
+        });
+        LOG.info("Shut down hook for Cache reload pool attached...");
+    }
+}

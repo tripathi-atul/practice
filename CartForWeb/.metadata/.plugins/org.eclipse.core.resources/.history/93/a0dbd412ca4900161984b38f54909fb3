@@ -1,0 +1,25 @@
+package com.syncron;
+
+import java.util.Iterator;
+
+
+public class EverySecondIterator<T> implements Iterator<T> {
+    public EverySecondIterator(Iterator<T> target) {
+    }
+
+    @Override
+    public boolean hasNext() {
+    	return false;
+    }
+
+    @Override
+    public T next() {
+    	return null;
+}
+
+    @Override
+    public void remove() {
+          //You can ignore this method
+          throw new RuntimeException("Not implemented");
+    }
+}

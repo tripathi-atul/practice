@@ -1,0 +1,11 @@
+package com.syncron;
+
+public class SenderReadService<T> implements ReadService<T> {
+	public SenderReadService(ReadService<T> target) {
+	}
+
+	@Override
+	public T read(int id) {
+		return null;
+	}
+}

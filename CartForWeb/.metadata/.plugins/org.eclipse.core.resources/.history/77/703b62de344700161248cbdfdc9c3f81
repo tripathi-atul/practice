@@ -1,0 +1,64 @@
+######### Properties of Staging Environment #############
+
+#######OMS.Endpoint=http://52.74.88.101:8080/service/oms
+OMSAdmin.Endpoint=http://52.74.89.59:8070/service/cartMwAPIService
+OPMS.Endpoint=http://52.74.99.41:8080/service/opms
+OMS.Endpoint=http://54.169.156.29:8080
+
+###### OMS Database credentials #########
+
+OMSDataBase.UserName=ac4773IU
+OMSDataBase.Password=a$7734#c
+OMSDataBase.EndPoint=localhost:3310
+OMS.UseConnectionPooling=false
+OMSDataBase.DBName=oms
+
+###### OMS Mongo credentials ##########
+OMSMongo.UserName=at16791
+OMSMongo.Endpoint=52.74.73.13:27057
+OMSMongo.DBName=snapdealdb
+OMSMongo.Password=""
+
+###### IPMS Database credentials #########
+
+IPMSDataBase.UserName=ac4773IU
+IPMSDataBase.Password=a$7734#c
+IPMSDataBase.EndPoint=localhost:3310
+IPMS.UseConnectionPooling=false
+IPMSDataBase.DBName=snapdeal_ipms
+
+###### CAMS Database credentials #########
+CAMSDataBase.UserName=ac4773IU
+CAMSDataBase.Password=a$7734#c
+CAMSDataBase.EndPoint=localhost:3310
+CAMSDataBase.DBName=cams
+
+###### Snapdeal Database credentials #########
+
+snapdealDataBase.UserName=ac4773IU
+snapdealDataBase.Password=a$7734#c
+snapdealDataBase.EndPoint=localhost:3315
+snapdeal.UseConnectionPooling=false
+snapdealDataBase.DBName=snapdeal
+
+###### SSH CREDENTIALS #####
+
+SSHUser1=ac4773
+SSHHost1=54.169.156.29
+SSHKey1=src/main/resources/key.pem
+SSHPort1=22
+SSHLocalPort11=3310
+SSHRemoteHost11=20.0.0.65
+SSHRemotePort11=3307
+
+SSHUser2=ac4773
+SSHHost2=54.169.156.29
+SSHKey2=src/main/resources/key.pem
+SSHPort2=22
+SSHLocalPort21=3315
+SSHRemoteHost21=20.0.0.65
+SSHRemotePort21=3306
+
+
+
+

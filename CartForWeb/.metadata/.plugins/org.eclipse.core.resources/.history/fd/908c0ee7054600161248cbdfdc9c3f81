@@ -1,0 +1,70 @@
+package com.atul;
+
+import java.util.*;
+import java.lang.*;
+import java.io.*;
+
+class KeyPadTyping {
+	
+	int number;
+	char character;
+	String string;
+	
+    
+    public String getString() {
+		return string;
+	}
+	public void setString(String string) {
+		this.string = string;
+	}
+	public char getCharacter() {
+		return character;
+	}
+	public void setCharacter(char character) {
+		this.character = character;
+	}
+	public int getNumber() {
+		return number;
+	}
+	public void setNumber(int number) {
+		this.number = number;
+	}
+	
+	
+	public int hashCode() {
+		String newString  = string;
+		int returnNumber = 0;
+		for(int i = 0; i < newString.length(); i++) {
+			if(newString.charAt(i) == 'A' || newString.charAt(i) == 'B' || newString.charAt(i) == 'C' ) {
+				returnNumber = 2;
+			}
+			
+			else if(newString.charAt(i) == 'C' || newString.charAt(i) == 'D' || newString.charAt(i) == 'E' ) {
+				returnNumber = 3;
+			}
+			
+			else if(newString.charAt(i) == 'F' || newString.charAt(i) == 'G' || newString.charAt(i) == 'H' ) {
+				returnNumber = 4;
+			}
+			else
+				returnNumber = 1;
+		}
+		return returnNumber;
+     
+    }
+	
+	public boolean equals(Object kepad) {
+		return false;
+	}
+	
+	
+	public static void main (String[] args) {
+		KeyPadTyping keyPad = new KeyPadTyping();
+		keyPad.setString("AFDE");
+	    HashMap<KeyPadTyping,String> map = new HashMap<KeyPadTyping,String>();
+	    map.put(keyPad, "geeksForgeeks");
+	    System.out.println(map);
+	    
+		
+	}
+}

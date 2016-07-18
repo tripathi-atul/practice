@@ -1,0 +1,17 @@
+package com.atul;
+
+public class PermutationOfString2 {
+	static void permutation(String string,int length) {
+		
+	}
+	
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		String string = "ABC";
+		int length = string.length();
+		permutation(string,length);
+
+	}
+
+}

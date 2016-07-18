@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.testng.eclipse.launchconfig">
+<stringAttribute key="org.eclipse.jdt.launching.CLASSPATH_PROVIDER" value="org.eclipse.m2e.launchconfig.classpathProvider"/>
+<stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="org.testng.remote.RemoteTestNG"/>
+<stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="snapdeal_cart"/>
+<stringAttribute key="org.eclipse.jdt.launching.SOURCE_PATH_PROVIDER" value="org.eclipse.m2e.launchconfig.sourcepathProvider"/>
+<mapAttribute key="org.testng.eclipse.ALL_CLASS_METHODS"/>
+<listAttribute key="org.testng.eclipse.CLASS_TEST_LIST">
+<listEntry value="com.snapdeal.dataprovider.CartDataProvider"/>
+<listEntry value="com.snapdeal.properties.test.cart.GetCartItemsCountTest"/>
+<listEntry value="com.snapdeal.utils.MongoUtils"/>
+<listEntry value="com.snapdeal.properties.test.cart.FreezeCartTest"/>
+<listEntry value="com.snapdeal.helper.AES"/>
+<listEntry value="com.snapdeal.properties.test.cart.MergeCartsTest"/>
+<listEntry value="com.snapdeal.helper.Encryptor"/>
+<listEntry value="com.snapdeal.utils.CartTestUtils"/>
+<listEntry value="com.snapdeal.properties.test.cart.UpdateCartItemQuantityTest"/>
+<listEntry value="com.snapdeal.utils.ExcelFileReader"/>
+<listEntry value="com.snapdeal.utils.DatabaseUtils"/>
+<listEntry value="com.snapdeal.helper.ICartAerospikeClient"/>
+<listEntry value="com.snapdeal.helper.DBHelper"/>
+<listEntry value="com.snapdeal.properties.test.cart.RemoveBasketItemTest"/>
+<listEntry value="com.snapdeal.helper.request.GenerateOMSCartRequest"/>
+<listEntry value="com.snapdeal.properties.test.cart.AssociateOrderInfoWithCartTest"/>
+<listEntry value="com.snapdeal.properties.test.cart.InsertBasketItemTest"/>
+<listEntry value="com.snapdeal.helper.BasketHelper"/>
+<listEntry value="com.snapdeal.utils.DataProviderUtils"/>
+<listEntry value="com.snapdeal.properties.test.cart.GetCartUsingIdTest"/>
+<listEntry value="com.snapdeal.properties.test.cart.InsertCartTest"/>
+<listEntry value="com.snapdeal.utils.CartMwInitUtil"/>
+<listEntry value="com.snapdeal.testbase.TestBase"/>
+<listEntry value="com.snapdeal.properties.test.cart.AddUserDetailsWithCartTest"/>
+<listEntry value="com.snapdeal.properties.test.cart.GetNonFreezeCartUsingEmailTest"/>
+<listEntry value="snapdeal_cart.SuperImsTest"/>
+<listEntry value="snapdeal_cart.MongoPractice"/>
+<listEntry value="com.snapdeal.helper.MongoHelper"/>
+<listEntry value="com.snapdeal.helper.CartAPIHelper"/>
+<listEntry value="com.snapdeal.properties.test.cart.RemoveItemTest"/>
+<listEntry value="com.snapdeal.helper.DatabaseHelper"/>
+<listEntry value="com.snapdeal.utils.TestCaseUtils"/>
+<listEntry value="com.snapdeal.properties.test.cart.UpdateBasketItemQuantiityTest"/>
+<listEntry value="com.snapdeal.utils.MwConverter"/>
+<listEntry value="com.snapdeal.properties.test.cart.SaveCartTest"/>
+<listEntry value="com.snapdeal.utils.AssertUtils"/>
+</listAttribute>
+<listAttribute key="org.testng.eclipse.METHOD_TEST_LIST"/>
+<listAttribute key="org.testng.eclipse.PACKAGE_TEST_LIST"/>
+<mapAttribute key="org.testng.eclipse.PARAMETERS"/>
+<stringAttribute key="org.testng.eclipse.PRE_DEFINED_LISTENERS" value=""/>
+<intAttribute key="org.testng.eclipse.TYPE" value="1"/>
+</launchConfiguration>

@@ -1,0 +1,191 @@
+package com.snapdeal.testbase;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.commons.io.FileUtils;
+import org.testng.ITestResult;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterSuite;
+import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Optional;
+import org.testng.annotations.Parameters;
+
+import com.snapdeal.automation.base.APIService;
+import com.snapdeal.automation.base.AbstractTestBase;
+import com.snapdeal.automation.connectors.DatabaseUtility;
+import com.snapdeal.automation.connectors.MongoUtility;
+import com.snapdeal.cart.mw.entity.CartMwSRO;
+import com.snapdeal.helper.CartAPIHelper;
+import com.snapdeal.helper.DatabaseHelper;
+import com.snapdeal.helper.MongoHelper;
+import com.snapdeal.utils.CartTestUtils;
+public class TestBase extends AbstractTestBase
+{
+	public static String environment;
+	protected Map<String,DatabaseUtility> dbutilsmap;
+	public MongoHelper mongo;
+	public static DatabaseHelper db;
+	public static ArrayList<String> latestProduct;
+	public static ArrayList<String> latestParentSoftProduct;
+	public static ArrayList<String> latestChildSoftProduct;
+	public static ArrayList<String> secondLatestProduct;
+	public static ArrayList<String> secondLatestProductNotFirst;
+	public static ArrayList<String> secondLatestProductNotFirstFMCG;
+	public static ArrayList<String> latestProductNonFmcg;
+	public static ArrayList<String> secondlatestProductNonFmcg;
+	public static ArrayList<String> latestFMCGProduct;
+	protected static CartAPIHelper cartApiHelper;
+	protected static CartMwSRO filledCartList;
+	protected static CartMwSRO filledCartList1;
+	protected static CartMwSRO filledCartList2;
+	protected static CartMwSRO blankCartList;
+	ArrayList<String> latestDataWithODD = null; 
+	ArrayList<String> zeroInventoryFromIpms = null;
+
+	/** The failed. */
+	protected int                            failed            = 0;
+
+	/** The successful. */
+	protected int                            successful        = 0;
+
+	/** The api name. */
+	protected String                         apiName;
+
+	/** The class tofailuremap. */
+	protected static Map<String, String> classTofailuremap = new HashMap<String, String>();
+
+	/** The failed api. */
+	protected static int                     failedApi         = 0;
+
+	/** The passed api. */
+	protected static int                     passedApi         = 0;
+
+
+	@BeforeSuite
+	@Parameters({"env"})
+	public void beforeSuite(@Optional("Staging") String environment) {
+		TestBase.environment=environment;
+		super.beforeSuite(environment);
+		System.out.println("Environment: "+environment);
+	}
+	@BeforeTest
+	public void setupHelpers(){
+		cartApiHelper = getCARTService();
+		filledCartList = getFilledCart();
+		blankCartList = getBlankCart();
+		//mongo = initializeMongoDB();
+		db = initializeDB();
+		latestProduct = db.getLatestSUPCWithValidData();
+		latestProductNonFmcg = db.getLatestSUPCForNonFMCG();
+		secondLatestProduct = db.getSecondLatestSUPCWithValidData();
+		secondLatestProductNotFirst = db.getSecondLatestSUPCNotEqualToFirst(latestProduct.get(0));
+		secondLatestProductNotFirstFMCG = db.getSecondLatestSUPCNotEqualToFirst(latestProductNonFmcg.get(0));
+		
+		
+		
+	}
+	
+	private CartMwSRO getBlankCart() {
+		// TODO Auto-generated method stub
+		return CartTestUtils.getBlankTestCart();
+	}
+	
+	private CartMwSRO getFilledCart()
+	{
+		return CartTestUtils.getTestCart(1);
+		
+	}
+	
+	private CartAPIHelper getCARTService() {
+		CartAPIHelper service=   (CartAPIHelper) APIService.getService(CartAPIHelper.class);
+		service.setEnableReporterLogging(enableReporterLogging);
+		return service;
+	}
+	
+	public Map<String,DatabaseUtility> initDB(){
+		return this.initializeDB1();
+	}
+	
+	protected Map<String,DatabaseUtility> initializeDB1() 
+	{
+		dbutilsmap = getDBConnections();
+		System.out.println("dbutil Map "+dbutilsmap);
+		return dbutilsmap;
+	}
+	
+    @Override
+    protected DatabaseHelper initializeDB() {
+        Map<String, DatabaseUtility> dbutils = getDBConnections();
+        return new DatabaseHelper(dbutils);
+    }
+
+
+	@Override
+	    public MongoHelper initializeMongoDB() {
+	        Map<String, MongoUtility> mongodbutils = getMongoDBConnections();
+	        return new MongoHelper(mongodbutils);
+	    }
+
+
+	@AfterMethod
+	public void tearDown(ITestResult result) {
+		apiName = result.getTestClass().getName().substring(34);
+
+		if (result.isSuccess()) {
+			successful++;
+		} else {
+			failed++;
+		}
+		classTofailuremap.put(apiName, successful + "," + failed);
+	}
+
+	/**
+	 * Generate report.
+	 */
+	@AfterSuite
+	public void generateReport() {
+
+		try {
+			File template = new File(System.getProperty("user.dir") + "/template.html");
+			String templateContent = FileUtils.readFileToString(template);
+			System.out.println("Size: " + classTofailuremap.size());
+			String apiTable = "<table id='apiTable' style='margin-left:auto;margin-right:auto;border-radius:5px;border-collapse:collapse;border:1px solid #ccc;'>"
+					+ "<tr style='background-color:#aaa;'> <th>Api Name</th> <th>Succesful Cases</th><th> Failed Cases</th></tr>";
+			int totalPassedCases = 0;
+			int totalFailedCases = 0;
+			for (Map.Entry<String, String> entry : classTofailuremap.entrySet()) {
+				String className = entry.getKey();
+				String temp = entry.getValue();
+				String passed = temp.substring(0, temp.indexOf(','));
+				String failed = temp.substring(temp.indexOf(',') + 1);
+				if (failed.equals("0")) {
+					passedApi++;
+				} else {
+					failedApi++;
+				}
+				totalPassedCases += Integer.parseInt(passed);
+				totalFailedCases += Integer.parseInt(failed);
+				apiTable += "<tr><td>" + className + "</td><td>" + passed + "</td><td>" + failed + "</td></tr>";
+			}
+			apiTable += "<tr style='border-top:1px solid #ccc;background-color:#ddd'><td>Total</td><td>" + totalPassedCases + "</td><td>" + totalFailedCases + "</td></tr>";
+			apiTable += "</table>";
+			templateContent = templateContent.replace("{$DivTable}", apiTable);
+			templateContent = templateContent.replace("{$PassedAPI}", String.valueOf(passedApi));
+			templateContent = templateContent.replace("{$FailedAPI}", String.valueOf(failedApi));
+			templateContent = templateContent.replace("{$TotalAPI}", String.valueOf((failedApi + passedApi)));
+			File newHtmlFile = new File(System.getProperty("user.dir") + "/report.html");
+			FileUtils.writeStringToFile(template, templateContent);
+
+		} catch (IOException e) {
+			System.out.println("Inside generateReport Exception");
+			e.printStackTrace();
+		}
+
+	}
+	
+}
+

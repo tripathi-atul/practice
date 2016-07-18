@@ -1,0 +1,10 @@
+package com.atul;
+
+public class EvenAndOdd {
+
+	public static void main(String[] args) {
+		int[] array = {8,4,4,8,2,3};
+
+	}
+
+}

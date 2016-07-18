@@ -1,0 +1,60 @@
+package com.syncron;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+
+
+public class EverySecondIterator<T> implements Iterator<T> {
+	Iterator<T> iterator;
+    public EverySecondIterator(Iterator<T> target) {
+    	iterator = target;
+    }
+
+    @Override
+    public boolean hasNext() {
+/*    	boolean returnvalue = false;
+    	    	if(iterator.hasNext()) {
+    	    		iterator.next();
+    	    		returnvalue = iterator.hasNext();
+    	    	}
+    	    	return returnvalue;*/
+    	return iterator.hasNext();
+    }
+
+    @Override
+    public T next() {
+    	T object  = iterator.next();
+    	if(iterator.hasNext()) 
+    	return iterator.next();
+    	
+    	return null;
+    	
+    	
+}
+
+    @Override
+    public void remove() {
+          
+          throw new RuntimeException("Not implemented");
+    }
+    
+    
+    
+    public static void main(String[] args) {
+    	ArrayList<Integer> array = new ArrayList<Integer>();
+    	array.add(1);
+    	array.add(2);
+    	array.add(3);
+    	array.add(4);
+    	Iterator<Integer> i = array.iterator();
+    	EverySecondIterator<Integer> e = new EverySecondIterator<Integer>(i);
+    	/*while(e.hasNext())  {
+    		System.out.println(e.next());
+    	}*/
+    	System.out.println(e.next());
+    	System.out.println(e.next());
+    	System.out.println(e.hasNext());
+    	
+
+    }
+}

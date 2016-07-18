@@ -1,0 +1,472 @@
+package com.snapdeal.helper;
+
+/**
+ *  Copyright 2015 Jasper Infotech (P) Limited . All Rights Reserved.
+ *  JASPER INFOTECH PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
+*/
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.aerospike.client.AerospikeClient;
+import com.aerospike.client.Bin;
+import com.aerospike.client.Host;
+import com.aerospike.client.Key;
+import com.aerospike.client.Record;
+import com.aerospike.client.policy.ClientPolicy;
+import com.aerospike.client.policy.RecordExistsAction;
+import com.aerospike.client.policy.WritePolicy;
+import com.snapdeal.base.cache.CacheManager;
+import com.snapdeal.base.tenant.model.StoreFront;
+import com.snapdeal.base.utils.StringUtils;
+import com.snapdeal.cart.aerospike.client.ICartAerospikeClient;
+import com.snapdeal.cart.cache.CartPropertiesCache;
+import com.snapdeal.cart.client.entity.BuyForm;
+import com.snapdeal.cart.client.entity.Cart;
+import com.snapdeal.cart.mw.entity.BasketType;
+import com.snapdeal.cart.mw.entity.EmailInfo;
+import com.snapdeal.cart.serialization.util.CartProtoBufferSerializationService;
+import com.snapdeal.cart.util.BooleanHolder;
+
+/**
+ * @version 1.0, 13-Sep-2015
+ * @author harish
+ */
+@Service("cartAeroSpikeClient")
+public class CartAerospikeClient implements ICartAerospikeClient {
+    /** LOGGER **/
+    private static final org.slf4j.Logger LOG                = LoggerFactory.getLogger(CartAerospikeClient.class);
+
+    AerospikeClient                       client             = null;
+    private String                        csvHosts           = "localhost";
+    private int                           port               = 3000;
+    private String                        nameSpace          = "snapdealdb";
+    private String                        cartKeySet         = "cart";
+    private String                        userEmailKeySet    = "userEmail";
+    private String                        userName           = null;
+    private String                        password           = null;
+    private static final String           cartBinName        = "cartBin";
+    private static final String           userEmailBin       = "userEmailBin";
+    WritePolicy                           writePolicy        = null;
+    private String                        buyFormKeySet      = "buyForm";
+    private static final String           buyFormBinName     = "buyFormBin";
+    private String                        defaultStoreFront  = "SDL";
+    private static final String           emailDelimiter     = "**&&##";
+    public static int                     readPolicyTimeout  = 50;
+    public static int                     writePolicyTimeout = 50;
+    private String                        emailMappingKeySet = "emailMapping";
+    private static final String[]         emailMapping       = { "otherEmail", "imsId" };
+    private String                        imsIdKeySet        = "imsId";
+    private static final String           imsIdBinName       = "imsIdBin";
+
+    @Override
+    public void initialize() {
+        CartPropertiesCache cartPropertiesCache = CacheManager.getInstance().getCache(CartPropertiesCache.class);
+
+        if (!cartPropertiesCache.isEmptyProperty(CartPropertiesCache.AEROSPIKE_HOST_URLS_COMMASEPERATED)) {
+            csvHosts = cartPropertiesCache.getProperty(CartPropertiesCache.AEROSPIKE_HOST_URLS_COMMASEPERATED);
+        }
+        if (!cartPropertiesCache.isEmptyProperty(CartPropertiesCache.AEROSPIKE_PORT)) {
+            port = Integer.parseInt(cartPropertiesCache.getProperty(CartPropertiesCache.AEROSPIKE_PORT));
+        }
+        if (!cartPropertiesCache.isEmptyProperty(CartPropertiesCache.AEROSPIKE_NAMESPACE)) {
+            nameSpace = cartPropertiesCache.getProperty(CartPropertiesCache.AEROSPIKE_NAMESPACE);
+        }
+        if (!cartPropertiesCache.isEmptyProperty(CartPropertiesCache.AEROSPIKE_CART_SET)) {
+            cartKeySet = cartPropertiesCache.getProperty(CartPropertiesCache.AEROSPIKE_CART_SET);
+        }
+        if (!cartPropertiesCache.isEmptyProperty(CartPropertiesCache.AEROSPIKE_USEREMAIL_SET)) {
+            userEmailKeySet = cartPropertiesCache.getProperty(CartPropertiesCache.AEROSPIKE_USEREMAIL_SET);
+        }
+        if (!cartPropertiesCache.isEmptyProperty(CartPropertiesCache.AEROSPIKE_USERNAME)) {
+            userName = cartPropertiesCache.getProperty(CartPropertiesCache.AEROSPIKE_USERNAME);
+        }
+        if (!cartPropertiesCache.isEmptyProperty(CartPropertiesCache.AEROSPIKE_PASSWORD)) {
+            password = cartPropertiesCache.getProperty(CartPropertiesCache.AEROSPIKE_PASSWORD);
+        }
+        if (!cartPropertiesCache.isEmptyProperty(CartPropertiesCache.AEROSPIKE_WRITE_TIMEOUT)) {
+            writePolicyTimeout = Integer.parseInt(cartPropertiesCache.getProperty(CartPropertiesCache.AEROSPIKE_WRITE_TIMEOUT));
+        }
+        if (!cartPropertiesCache.isEmptyProperty(CartPropertiesCache.AEROSPIKE_READ_TIMEOUT)) {
+            readPolicyTimeout = Integer.parseInt(cartPropertiesCache.getProperty(CartPropertiesCache.AEROSPIKE_READ_TIMEOUT));
+        }
+
+        String[] hostStrings = csvHosts.split(",");
+        List<String> hostNodes = Arrays.asList(hostStrings);
+        List<Host> hostLists = new ArrayList<Host>();
+        for (String hostAdress : hostNodes) {
+            Host host = new Host(hostAdress, port);
+            hostLists.add(host);
+        }
+        ClientPolicy policy = new ClientPolicy();
+        policy.user = userName;
+        policy.password = password;
+        policy.failIfNotConnected = true;
+        policy.timeout = -1;
+        policy.readPolicyDefault.timeout = readPolicyTimeout;
+        policy.readPolicyDefault.maxRetries = 1;
+        policy.readPolicyDefault.sleepBetweenRetries = 10;
+        policy.writePolicyDefault.timeout = 200;
+        policy.writePolicyDefault.maxRetries = 1;
+        policy.writePolicyDefault.sleepBetweenRetries = 50;
+        policy.writePolicyDefault.recordExistsAction = RecordExistsAction.UPDATE;
+        policy.writePolicyDefault.expiration = 5184000;
+        policy.writePolicyDefault.sendKey = true;
+        policy.writePolicyDefault.timeout = writePolicyTimeout;
+        try {
+            client = new AerospikeClient(policy, (Host[]) hostLists.toArray(new Host[hostLists.size()]));
+        } catch (Exception e) {
+            LOG.error("Exception while initializing aerospike client", e);
+        }
+        LOG.info("aerospike configurations");
+        LOG.info("=========================");
+        LOG.info("csvHosts : " + csvHosts);
+        LOG.info("port : " + port);
+        LOG.info("nameSpace : " + nameSpace);
+        LOG.info("cartKeySet : " + cartKeySet);
+        LOG.info("userEmailKeySet : " + userEmailKeySet);
+        LOG.info("userName : " + userName);
+        LOG.info("password : " + password);
+        LOG.info("readPolicyTimeout :" + readPolicyTimeout);
+        LOG.info("writePolicyTimeout :" + writePolicyTimeout);
+        LOG.info("=========================");
+
+    }
+
+    @Override
+    public void save(Cart cart, String imsIdOrUserEmail, BooleanHolder changeAssociation) {
+        if (null != cart) {
+            try {
+                Key cartKey = new Key(nameSpace, cartKeySet, cart.getCartId());
+                byte[] cartObjectByte = CartProtoBufferSerializationService.toProtoBuf(cart);
+                Bin[] cartBins = { new Bin(cartBinName, cartObjectByte) };
+                client.put(null, cartKey, cartBins);
+            } catch (Exception e) {
+                LOG.error("Exception while adding bin to cartkey :{}", e);
+            }
+
+            if (changeAssociation.isMutableBoolean() && !cart.isFreezed() && !cart.isQuickbuy()) {
+                if (StringUtils.isNotEmpty(cart.getImsId())) {
+                    try {
+                        Key userKey = new Key(nameSpace, imsIdKeySet, imsIdOrUserEmail);
+                        Bin[] imsIdBins = { new Bin(imsIdBinName, cart.getCartId()) };
+                        client.put(null, userKey, imsIdBins);
+
+                    } catch (Exception e) {
+                        LOG.error("Exception while adding bin to imdIdKey :", e);
+                    }
+                } else if (StringUtils.isNotEmpty(cart.getUserEmail())) {
+                    try {
+                        Key userKey = new Key(nameSpace, userEmailKeySet, imsIdOrUserEmail);
+                        Bin[] userEmailBins = { new Bin(userEmailBin, cart.getCartId()) };
+                        client.put(null, userKey, userEmailBins);
+
+                    } catch (Exception e) {
+                        LOG.error("Exception while adding bin to userEmailkey :", e);
+                    }
+                }
+            }
+
+        } else {
+            LOG.info("got null cart for save.");
+        }
+
+    }
+
+    @Override
+    public void remove(Cart cart, String userEmail) {
+        if (null != cart) {
+            try {
+                Key cartKey = new Key(nameSpace, cartKeySet, cart.getCartId());
+                client.delete(null, cartKey);
+            } catch (Exception e) {
+                LOG.error("Exception while deleting from cart key", e);
+            }
+
+            /*if (StringUtils.isNotEmpty(userEmail) && !cart.isQuickbuy()) {
+                try {
+                    Key emailKey = new Key(nameSpace, userEmailKeySet, userEmail);
+                    client.delete(null, emailKey);
+                } catch (Exception e) {
+                    LOG.error("Exception while deleting from emailKey", e);
+                }
+            }*/
+
+        } else {
+            LOG.error("got null cart for delete.");
+        }
+
+    }
+
+    @Override
+    public void remove(String cartId, String storeFront, String basketType) {
+        //get cart using cartId.
+        if (StringUtils.isNotEmpty(cartId)) {
+            Cart cart = get(cartId, storeFront);
+            if (cart != null) {
+                if (cart.getBaskets() != null && cart.getBaskets().containsKey(BasketType.SD_INSTANT)) {
+                    String userEmail = getUserEmail(cart.getUserEmail(), storeFront, getBasketTypeStr(BasketType.SD_INSTANT));
+                    LOG.info("Deleting cart with cartId:" + cartId + " and email: " + userEmail);
+                    remove(cart, userEmail);
+                } else {
+                    String userEmail = getUserEmail(cart.getUserEmail(), storeFront, null);
+                    LOG.info("Deleting cart with cartId:" + cartId + " and email: " + userEmail);
+                    remove(cart, userEmail);
+                }
+
+            } else
+                LOG.error("Cart is null");
+        } else {
+            LOG.error("got null or empty cartId for delete");
+        }
+
+    }
+
+    @Override
+    public Cart get(String cartId, String storeFront) {
+        Cart cart = null;
+        if (StringUtils.isNotEmpty(cartId)) {
+            try {
+                Key cartKey = new Key(nameSpace, cartKeySet, cartId);
+                Record cartRecord = client.get(null, cartKey);
+                if (null != cartRecord) {
+                    byte[] bytes = (byte[]) cartRecord.getValue(cartBinName);
+                    if (null != bytes) {
+                        cart = (Cart) CartProtoBufferSerializationService.fromProtoBuf(bytes, Cart.class);
+                        String cartStoreFront = getStoreFrontCodeFromCart(cart);
+                        LOG.info("Cartid : " + cartId + " cart store Front : " + cartStoreFront + " requested store front : " + storeFront);
+                        if ((cartStoreFront == null && storeFront != null)
+                                || (storeFront == null && (cartStoreFront != null && !cartStoreFront.equalsIgnoreCase(defaultStoreFront)))
+                                || (cartStoreFront != null && storeFront != null && !storeFront.equalsIgnoreCase(cartStoreFront))) {
+                            return null;
+                        }
+
+                    }
+                }
+            } catch (Throwable e) {
+                LOG.error("Exception while fetching cart from cart key : ", e);
+            }
+
+        }
+        return cart;
+    }
+
+    @Override
+    public Cart getCartUsingEmailId(String emailId, String storeFront) {
+        Cart cart = null;
+        String cartId = null;
+        if (StringUtils.isNotEmpty(emailId)) {
+            try {
+                Key userEmailKey = new Key(nameSpace, userEmailKeySet, emailId);
+                Record userEmailRecord = client.get(null, userEmailKey);
+                if (null != userEmailRecord) {
+                    cartId = (String) userEmailRecord.getValue(userEmailBin);
+                }
+            } catch (Exception e) {
+                LOG.error("Exception while fetching cartid from email keyset", e);
+            }
+        }
+        if (StringUtils.isNotEmpty(cartId)) {
+            cart = get(cartId, storeFront);
+        } else {
+            LOG.info("got empty cartId against EmailId :" + emailId);
+        }
+        if (null == cart || (null != cart && (cart.isFreezed() || cart.isQuickbuy()))) {
+            try {
+                LOG.info(emailId + " is mapped to frozen,quickbuy,or null cart.Deleting entry.");
+                if (StringUtils.isNotEmpty(emailId)) {
+                    try {
+                        Key emailKey = new Key(nameSpace, userEmailKeySet, emailId);
+                        client.delete(null, emailKey);
+                    } catch (Exception e) {
+                        LOG.error("Exception while deleting from emailKey", e);
+                    }
+                }
+                cart = null;
+            } catch (Exception e) {
+                LOG.error("Exception while deleting cart entry for user email");
+                cart = null;
+            }
+        }
+        return cart;
+    }
+
+    @Override
+    public Cart getCartUsingImdId(String imsId, String storeFront) {
+        Cart cart = null;
+        String cartId = null;
+        if (StringUtils.isNotEmpty(imsId)) {
+            try {
+                Key imsIdKey = new Key(nameSpace, imsIdKeySet, imsId);
+                Record imsIdRecord = client.get(null, imsIdKey);
+                if (null != imsIdRecord) {
+                    cartId = (String) imsIdRecord.getValue(imsIdBinName);
+                }
+            } catch (Exception e) {
+                LOG.error("Exception while fetching cartid from ims keyset", e);
+            }
+        }
+        if (StringUtils.isNotEmpty(cartId)) {
+            cart = get(cartId, storeFront);
+        } else {
+            LOG.info("got empty cartId against imsId :" + imsId);
+        }
+        if (null == cart || (null != cart && (cart.isFreezed() || cart.isQuickbuy()))) {
+            try {
+                LOG.info("Ims id" + imsId + " is mapped to frozen,quickbuy,or null cart.Deleting entry.");
+                if (StringUtils.isNotEmpty(imsId)) {
+                    try {
+                        Key imsKey = new Key(nameSpace, imsIdKeySet, imsId);
+                        client.delete(null, imsKey);
+                    } catch (Exception e) {
+                        LOG.error("Exception while deleting from ims key", e);
+                    }
+                }
+                cart = null;
+            } catch (Exception e) {
+                LOG.error("Exception while deleting cart entry for ims id");
+                cart = null;
+            }
+        }
+        return cart;
+    }
+
+    @Override
+    public void saveEmailInfo(String email, String otherEmail, String imsId) {
+        if (StringUtils.isNotEmpty(email)) {
+            try {
+                Key emailKey = new Key(nameSpace, emailMappingKeySet, email);
+                Bin[] emailMappingBins = { new Bin(emailMapping[0], otherEmail), new Bin(emailMapping[1], imsId) };
+                client.put(null, emailKey, emailMappingBins);
+            } catch (Exception e) {
+                LOG.error("Exception while saving email mapping for email : {}", e);
+            }
+        }
+    }
+
+    @Override
+    public EmailInfo getEmailMapping(String emailId) {
+        EmailInfo emailInformation = null;
+        if (StringUtils.isNotEmpty(emailId)) {
+            try {
+                Key userEmailKey = new Key(nameSpace, emailMappingKeySet, emailId);
+                Record userEmailRecord = client.get(null, userEmailKey);
+                if (null != userEmailRecord) {
+                    emailInformation = new EmailInfo();
+                    emailInformation.setEmailId(emailId);
+                    emailInformation.setOtherEmailId((String) userEmailRecord.getValue(emailMapping[0]));
+                    emailInformation.setImsId((String) userEmailRecord.getValue(emailMapping[1]));
+                }
+            } catch (Exception e) {
+                LOG.error("Exception while fetching email information from email : {}", e);
+            }
+        }
+        return emailInformation;
+    }
+
+    //************* Buy form *************// 
+
+    @Override
+    public void saveBuyForm(BuyForm buyForm) {
+        if (null != buyForm) {
+            try {
+                Key buyFormKey = new Key(nameSpace, buyFormKeySet, buyForm.getBuyFormId());
+                byte[] buyFormObjectByte = CartProtoBufferSerializationService.toProtoBuf(buyForm);
+                Bin[] buyFormBins = { new Bin(buyFormBinName, buyFormObjectByte) };
+                client.put(null, buyFormKey, buyFormBins);
+            } catch (Exception e) {
+                LOG.error("Exception while adding bin to buyFormKey :", e);
+            }
+        }
+
+    }
+
+    @Override
+    public void deleteBuyForm(BuyForm buyForm) {
+        if (null != buyForm) {
+            try {
+                Key buyFormKey = new Key(nameSpace, buyFormKeySet, buyForm.getBuyFormId());
+                client.delete(null, buyFormKey);
+            } catch (Exception e) {
+                LOG.error("Exception while deleting from buyForm key", e);
+            }
+        }
+
+    }
+
+    @Override
+    public BuyForm getBuyFormById(String buyFormID) {
+        BuyForm buyForm = null;
+        try {
+            Key buyFormKey = new Key(nameSpace, buyFormKeySet, buyFormID);
+            Record buyFormRecord = client.get(null, buyFormKey);
+            if (null != buyFormRecord) {
+                byte[] bytes = (byte[]) buyFormRecord.getValue(buyFormBinName);
+                if (null != bytes)
+                    buyForm = (BuyForm) CartProtoBufferSerializationService.fromProtoBuf(bytes, BuyForm.class);
+            }
+            if (null == buyForm) {
+                LOG.info("got null buyForm for buyFormId :" + buyFormID);
+            }
+        } catch (Throwable e) {
+            LOG.error("Exception while fetching cart from cart key : ", e);
+        }
+        return buyForm;
+    }
+
+    //******************************* Private Methods *******************************//
+
+    private String getStoreFrontCode(StoreFront storeFront) {
+        String storeCode = null;
+        if (storeFront != null && storeFront.getCode() != null && !storeFront.getCode().equalsIgnoreCase(defaultStoreFront))
+            storeCode = storeFront.getCode();
+        return storeCode;
+    }
+
+    //get basket type
+    private String getBasketTypeStr(BasketType basketType) {
+        String basketTypeStr = null;
+        if (basketType != null && basketType.getCode() != null) {
+            if (basketType == BasketType.SD_INSTANT) {
+                basketTypeStr = "SDINSTANT";
+            }
+        }
+
+        return basketTypeStr;
+    }
+
+    private String getStoreFrontCodeFromCart(Cart cart) {
+        return getStoreFrontCode(cart.getStoreFront());
+    }
+
+    public String getUserEmail(String userEmail, String storeFront, String basketType) {
+        String returnEmailStr = null;
+        StringBuilder emailStr = null;
+        if (StringUtils.isNotEmpty(userEmail)) {
+            emailStr = new StringBuilder();
+            if (StringUtils.isNotEmpty(basketType))
+                emailStr.append(basketType);
+            if (StringUtils.isNotEmpty(storeFront)) {
+                if (emailStr.toString().isEmpty()) {
+                    emailStr.append(storeFront);
+                } else {
+                    emailStr.append("-" + storeFront);
+                }
+            }
+            if (emailStr.toString().isEmpty()) {
+                emailStr.append(userEmail);
+            } else {
+                emailStr.append(emailDelimiter + userEmail);
+            }
+        }
+        if (null != emailStr) {
+            returnEmailStr = emailStr.toString();
+        }
+
+        return returnEmailStr;
+    }
+
+}

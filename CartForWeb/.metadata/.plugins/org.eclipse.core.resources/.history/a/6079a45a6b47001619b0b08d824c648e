@@ -1,0 +1,300 @@
+package com.snapdeal.properties.test.cart;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+
+import com.snapdeal.base.tenant.model.StoreFront;
+import com.snapdeal.base.utils.StringUtils;
+import com.snapdeal.cart.mw.client.service.request.CartMwRequestConfig;
+import com.snapdeal.cart.mw.client.service.request.UpdateBasketItemQuantityRequest;
+import com.snapdeal.cart.mw.client.service.request.UpdateCartItemQuantityRequest;
+import com.snapdeal.cart.mw.client.service.response.CartMwResponse;
+import com.snapdeal.cart.mw.entity.BasketItemDetails;
+import com.snapdeal.cart.mw.entity.BasketType;
+import com.snapdeal.cart.mw.entity.CartMwSRO;
+import com.snapdeal.cart.mw.entity.ChangeItemDetails;
+import com.snapdeal.cart.mw.entity.Platform;
+import com.snapdeal.testbase.TestBase;
+import com.snapdeal.utils.CartTestUtils;
+
+public class UpdateBasketItemQuantiityTest extends TestBase {
+
+	public static CartMwSRO filledCart;
+	private int updatedQuantityAfterResponse = 0;
+
+	/*
+	 * @BeforeTest public static void saveFilledCart() {
+	 * 
+	 * filledCart = cartList;
+	 * 
+	 * }
+	 */
+
+	@BeforeClass(alwaysRun = true)
+	public void beforeClass() {
+		mongo = initializeMongoDB();
+
+	}
+
+	/**
+	 * Test method to update cart for invalid cartId and invalid supc,vendor and
+	 * catalog. It should not return updated cart if cartId is invalid
+	 */
+	@Test(dataProvider = "invalidCartIds")
+	public void updateInvalidCart(String cartId) {
+		CartTestUtils.insertBasketItemForPrepare(null, BasketType.SD_INSTANT);
+
+		UpdateBasketItemQuantityRequest request = new UpdateBasketItemQuantityRequest();
+		request.setBasketType(BasketType.SD_INSTANT);
+
+		request.setCookieCartId(cartId);
+		request.setUserEmail(StringUtils.getRandom(5) + "@gmail.com");
+		request.setPlatform(Platform.WEB);
+
+		BasketItemDetails item = new BasketItemDetails();
+		item.setSupc(filledCartList.getBaskets().get(BasketType.SD_INSTANT)
+				.getBasketItems().get(0).getSupc());
+		item.setVendorCode(filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getBasketItems().get(0)
+				.getVendorCode());
+		item.setQuantity(3);
+		List<BasketItemDetails> itemList = new ArrayList<BasketItemDetails>();
+		itemList.add(item);
+		request.setItemDetailsList(itemList);
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateBasketItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Assert.assertEquals(response.getCart() == null, true);
+	}
+
+	/**
+	 * update valid basket
+	 */
+	@Test
+	public void updateValidBasket() {
+		int initialQuantity = 0;
+
+		CartTestUtils.insertBasketItemForPrepare(null, BasketType.SD_INSTANT);
+
+		initialQuantity = filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getBasketItems().get(0)
+				.getQuantity();
+
+		UpdateBasketItemQuantityRequest request = new UpdateBasketItemQuantityRequest();
+		request.setBasketType(BasketType.SD_INSTANT);
+
+		request.setCookieCartId(filledCartList.getCartId());
+		request.setUserEmail(filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getUserEmail());
+		request.setPlatform(Platform.WEB);
+
+		BasketItemDetails item = new BasketItemDetails();
+		item.setSupc(filledCartList.getBaskets().get(BasketType.SD_INSTANT)
+				.getBasketItems().get(0).getSupc());
+		item.setVendorCode(filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getBasketItems().get(0)
+				.getVendorCode());
+		item.setQuantity(3);
+		List<BasketItemDetails> itemList = new ArrayList<BasketItemDetails>();
+		itemList.add(item);
+		request.setItemDetailsList(itemList);
+		request.setPincode("110020");
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateBasketItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Assert.assertEquals(response.getCart().getBaskets() != null, true);
+		Assert.assertEquals(
+				response.getCart().getBaskets().get(BasketType.SD_INSTANT)
+						.getBasketItems().get(0).getQuantity() == 3, true);
+		Assert.assertEquals(2, initialQuantity);
+		Assert.assertEquals(request.getItemDetailsList().get(0).getSupc(),
+				response.getCart().getBaskets().get(BasketType.SD_INSTANT)
+						.getBasketItems().get(0).getSupc());
+	}
+
+	/**
+	 * EXL Test method to update cart for invalid cartId and invalid supc,vendor
+	 * and catalog. It should not return updated cart if cartId is invalid
+	 */
+	@Test(dataProvider = "invalidCartIds")
+	public void updateInvalidCartEXL(String cartId) {
+		StoreFront sf = new StoreFront();
+		sf.setCode("EXL");
+
+		CartTestUtils.insertBasketItemForPrepare(null, BasketType.SD_INSTANT,
+				sf);
+
+		UpdateBasketItemQuantityRequest request = new UpdateBasketItemQuantityRequest();
+		request.setBasketType(BasketType.SD_INSTANT);
+
+		request.setCookieCartId(cartId);
+		request.setUserEmail(StringUtils.getRandom(5) + "@gmail.com");
+		request.setPlatform(Platform.WEB);
+
+		BasketItemDetails item = new BasketItemDetails();
+		item.setSupc(filledCartList.getBaskets().get(BasketType.SD_INSTANT)
+				.getBasketItems().get(0).getSupc());
+		item.setVendorCode(filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getBasketItems().get(0)
+				.getVendorCode());
+		item.setQuantity(3);
+		List<BasketItemDetails> itemList = new ArrayList<BasketItemDetails>();
+		itemList.add(item);
+		request.setItemDetailsList(itemList);
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateBasketItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Assert.assertEquals(response.getCart() == null, true);
+	}
+
+	@Test
+	public void updateValidBasketEXL() {
+		int initialQuantity = 0;
+		StoreFront sf = new StoreFront();
+		sf.setCode("EXL");
+
+		CartTestUtils.insertBasketItemForPrepare(null, BasketType.SD_INSTANT,
+				sf);
+
+		initialQuantity = filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getBasketItems().get(0)
+				.getQuantity();
+
+		UpdateBasketItemQuantityRequest request = new UpdateBasketItemQuantityRequest();
+		request.setBasketType(BasketType.SD_INSTANT);
+		request.setStoreFront(sf);
+
+		request.setCookieCartId(filledCartList.getCartId());
+		request.setUserEmail(filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getUserEmail());
+		request.setPlatform(Platform.WEB);
+
+		BasketItemDetails item = new BasketItemDetails();
+		item.setSupc(filledCartList.getBaskets().get(BasketType.SD_INSTANT)
+				.getBasketItems().get(0).getSupc());
+		item.setVendorCode(filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getBasketItems().get(0)
+				.getVendorCode());
+		item.setQuantity(3);
+		List<BasketItemDetails> itemList = new ArrayList<BasketItemDetails>();
+		itemList.add(item);
+		request.setItemDetailsList(itemList);
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateBasketItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Assert.assertEquals(response.getCart().getBaskets() != null, true);
+		Assert.assertEquals(
+				response.getCart().getBaskets().get(BasketType.SD_INSTANT)
+						.getBasketItems().get(0).getQuantity() == 3, true);
+		Assert.assertEquals(2, initialQuantity);
+		Assert.assertEquals(request.getItemDetailsList().get(0).getSupc(),
+				response.getCart().getBaskets().get(BasketType.SD_INSTANT)
+						.getBasketItems().get(0).getSupc());
+	}
+
+	/**
+	 * June 2016 automation different configuration
+	 * 
+	 */
+	@Test(dataProvider = "data-different-Configuration")
+	public void updateValidBasketForDifferentConfig(boolean promoApplicable,
+			boolean loyalityPoint, boolean inventoryCheck, boolean autoSeller,
+			boolean deliveryDetails, Platform platform) {
+		int initialQuantity = 0;
+		int updatedQuantity = 3;
+		CartMwRequestConfig cartMwRequestConfig = InsertBasketItemTest
+				.setConfigurationParameters(promoApplicable, loyalityPoint,
+						inventoryCheck, autoSeller, deliveryDetails, platform);
+
+		CartTestUtils.insertBasketItemForPrepareWithConfig(null,
+				BasketType.SD_INSTANT, cartMwRequestConfig);
+
+		initialQuantity = filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getBasketItems().get(0)
+				.getQuantity();
+
+		UpdateBasketItemQuantityRequest request = new UpdateBasketItemQuantityRequest();
+		request.setBasketType(BasketType.SD_INSTANT);
+		// request.setConfig(cartMwRequestConfig);
+
+		request.setCookieCartId(filledCartList.getCartId());
+		request.setUserEmail(filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getUserEmail());
+		request.setPlatform(Platform.WEB);
+
+		BasketItemDetails item = new BasketItemDetails();
+		item.setSupc(filledCartList.getBaskets().get(BasketType.SD_INSTANT)
+				.getBasketItems().get(0).getSupc());
+		item.setVendorCode(filledCartList.getBaskets()
+				.get(BasketType.SD_INSTANT).getBasketItems().get(0)
+				.getVendorCode());
+		item.setQuantity(updatedQuantity);
+		List<BasketItemDetails> itemList = new ArrayList<BasketItemDetails>();
+		itemList.add(item);
+		request.setItemDetailsList(itemList);
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateBasketItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Assert.assertNotEquals(initialQuantity, response.getCart().getBaskets()
+				.get(BasketType.SD_INSTANT).getBasketItems().get(0)
+				.getQuantity());
+		Assert.assertEquals(response.getCart().getBaskets() != null, true);
+		Assert.assertEquals(
+				response.getCart().getBaskets().get(BasketType.SD_INSTANT)
+						.getBasketItems().get(0).getQuantity() == 3, true);
+		Assert.assertEquals(2, initialQuantity);
+		Assert.assertEquals(request.getItemDetailsList().get(0).getSupc(),
+				response.getCart().getBaskets().get(BasketType.SD_INSTANT)
+						.getBasketItems().get(0).getSupc());
+	}
+
+	@DataProvider(name = "invalidCartIds")
+	public Object[][] invalidCartIds() {
+		return new Object[][] { { null }, { StringUtils.getRandom(5) } };
+
+	}
+
+	@DataProvider(name = "data-different-Configuration")
+	private Object[][] returnDifferentConfiguration() {
+
+		return new Object[][] { { true, true, true, true, true, Platform.WEB },
+				{ true, true, true, true, true, Platform.WEB },
+				{ true, true, true, true, false, Platform.APP },
+				{ true, true, true, false, false, Platform.WAP },
+				{ true, true, false, false, false, Platform.WEB },
+				{ true, false, false, false, false, Platform.WEB },
+				{ false, false, false, false, false, Platform.WEB } };
+	}
+
+}

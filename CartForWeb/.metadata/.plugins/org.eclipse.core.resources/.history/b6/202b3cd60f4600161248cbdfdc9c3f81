@@ -1,0 +1,17 @@
+package com.atul;
+
+import java.util.HashMap;
+
+public class EvenAndOdd {
+
+	public static void main(String[] args) {
+		int[] array = {8,4,4,8,2,3};
+		HashMap<Integer,Integer> map = new HashMap<Integer,Integer>();
+		
+		for(int i = 0; i<array.length; i ++) {
+			
+		}
+
+	}
+
+}

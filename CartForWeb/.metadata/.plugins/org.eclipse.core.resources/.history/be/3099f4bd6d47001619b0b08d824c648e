@@ -1,0 +1,328 @@
+package com.snapdeal.properties.test.cart;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+
+
+
+
+import com.snapdeal.base.tenant.model.StoreFront;
+import com.snapdeal.cart.mw.client.service.request.UpdateCartItemQuantityRequest;
+import com.snapdeal.cart.mw.client.service.response.CartMwResponse;
+import com.snapdeal.cart.mw.entity.CartMwSRO;
+import com.snapdeal.cart.mw.entity.ChangeItemDetails;
+import com.snapdeal.cart.mw.entity.ItemDetails;
+import com.snapdeal.cart.mw.entity.Platform;
+import com.snapdeal.testbase.TestBase;
+import com.snapdeal.utils.AssertUtils;
+import com.snapdeal.utils.CartTestUtils;
+import com.snapdeal.utils.MwConverter;
+
+public class UpdateCartItemQuantityTest extends TestBase {
+
+	public static CartMwSRO filledCart;
+	private int updatedQuantityAfterResponse = 0;
+
+	/*
+	 * @BeforeTest public static void saveFilledCart() {
+	 * 
+	 * filledCart = cartList;
+	 * 
+	 * }
+	 */
+
+	@BeforeClass(alwaysRun = true)
+	public void beforeClass() {
+		mongo = initializeMongoDB();
+		
+
+	}
+
+	/**
+	 * Test method to update cart for invalid cartId and invalid supc,vendor and catalog. It should not return updated cart if
+	 * cartId is invalid
+	 */
+	@Test(dataProvider = "data-provider-invalidCartIdCombos")
+	public void updateInvalidCart(String cartId,String supc,String vendorCode) {
+		UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest();
+		request.setCartId("8a75aee3-d6a7-40c7-a11d-ef0807ae2511");
+		//StoreFront storeFront = new StoreFront("SDL", "Exclusively", 0, "web", null);
+		//request.setStoreFront(storeFront);
+		ChangeItemDetails item = new ChangeItemDetails();
+		item.setSupc("SDL089563347");
+		item.setVendorCode("e16a2a");
+		item.setQuantity(1);
+		List<ChangeItemDetails> itemList = new ArrayList<ChangeItemDetails>();
+		itemList.add(item);
+		request.setItemDetails(itemList);
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateCartItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Assert.assertEquals(response.getCart()==null,true);
+	}
+	
+	
+	/**
+	 * Test method to update cart for valid cartId and invalid supc,vendor and catalog. 
+	 * valid CartId and invalid combos of supc and vendorCode
+	 *
+	 */
+	
+	@Test(dataProvider = "data-provider-validCartIdCombos")
+	public void updateValidCartWithInvalidProductCombos(String cartId,String supc,String vendorCode,int intialQuantity) {
+		UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest();
+		int updatedQuantity = 3;
+		request.setCartId(cartId);
+		ChangeItemDetails item = new ChangeItemDetails();
+		item.setSupc(supc);
+		item.setVendorCode(vendorCode);
+		List<ChangeItemDetails> itemList = new ArrayList<ChangeItemDetails>();
+		itemList.add(item);
+		request.setItemDetails(itemList);
+		request.getItemDetails().get(0).setQuantity(updatedQuantity);
+		request.setUserEmail("abc1990@gmail.com");
+		CartMwResponse response = null;
+		try {			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateCartItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		//Need to update this further since we are getting n number of records for any email
+		//Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() != updatedQuantity,"quantity is getting updated without proper SUPC and vendorCode");
+		//Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() == intialQuantity, "quantity is getting updated without proper SUPC and vendorCode");
+		AssertUtils.assertBasicCartForInvalidCombos(request, response);
+	}
+	
+	/**
+	 * Test method to verify update of cartItemQuantity in case of valid cartId and valid supcVendor
+	 * 
+	 *  Also need to add data provider for quantity beyond sellable quantity
+	 */
+	
+
+	@Test(dataProvider = "data-provider-quantityOfItems")
+	public void updateCartItemWithValidSupcVendor(int quantity) {
+		UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest();
+		CartTestUtils.insertItemForPrepare(null);
+		int initialQuantity = filledCartList.getCartItems().get(0).getQuantity();
+		request.setCartId(filledCartList.getCartId());
+		ChangeItemDetails item = new ChangeItemDetails();
+		item.setSupc(filledCartList.getCartItems().get(0).getSupc());
+		item.setVendorCode(filledCartList.getCartItems().get(0).getVendorCode());
+		item.setQuantity(quantity);
+		List<ChangeItemDetails> itemList = new ArrayList<ChangeItemDetails>();
+		itemList.add(item);
+		request.setItemDetails(itemList);
+		request.setUserEmail(filledCartList.getUserEmail());
+
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateCartItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		updatedQuantityAfterResponse = response.getCart().getCartItems().get(0).getQuantity();
+		if(response.getCart().getCartItems().get(0).getAvailableQuantity()>= request.getItemDetails().get(0).getQuantity()){
+		Assert.assertTrue(request.getItemDetails().get(0).getQuantity() == response.getCart().getCartItems().get(0)
+				.getQuantity(),"updated quantity is not same as initial quantity");
+		updatedQuantityAfterResponse = response.getCart().getCartItems().get(0).getQuantity();
+		}
+		else
+		{ //assertion when available quantity is lesser than updated quantity. quantity should not be updated.
+			Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() == updatedQuantityAfterResponse, "quantity should not be updated if available quantity is lesser than updated quantity");
+		}
+		AssertUtils.assertBasicCartForUpdate(request, response);;
+		
+	}
+
+
+	
+	/**
+	 * Need to update and review this method further. Need a promo applicable product
+	 */
+
+/*	@Test
+	public void updateCartItemAndrefreshPromo() {
+		UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest();
+		CartTestUtils.insertItemForPrepare(null);
+		request.setCartId(filledCartList.getCartId());
+		ChangeItemDetails item = new ChangeItemDetails();
+		item.setSupc(filledCartList.getCartItems().get(0).getSupc());
+		item.setVendorCode(filledCartList.getCartItems().get(0).getVendorCode());
+		item.setQuantity(2);
+		item.setSkuCode("sku");
+		List<ChangeItemDetails> itemList = new ArrayList<ChangeItemDetails>();
+		itemList.add(item);
+		request.setItemDetails(itemList);
+		request.getConfig().setLoyaltyPointsApplicable(true);
+		request.getConfig().setPlatform(Platform.WAP);
+		request.getConfig().setPromoApplicable(true);
+		request.getConfig().setAutoSellerChange(true);
+
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateCartItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Assert.assertEquals(2, response.getCart().getCartItems().get(0)
+				.getQuantity());
+		Assert.assertEquals(new Integer(100), response.getCart().getCartItems()
+				.get(0).getLoyaltyBasePoint());
+		// assertEquals("PROMO-200",response.getCart().getCartItems().get(0).getSubCartItems().get(0).getBankPromoCode());
+	}*/
+	
+	
+	
+	//EXL
+	
+	/**
+	 * Test method to update cart for invalid cartId and invalid supc,vendor and catalog. It should not return updated cart if
+	 * cartId is invalid
+	 */
+	@Test(dataProvider = "data-provider-invalidCartIdCombos")
+	public void updateInvalidCartEXL(String cartId,String supc,String vendorCode) {
+		UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest();
+		StoreFront sf = new StoreFront();
+		sf.setCode("EXL");
+		request.setStoreFront(sf);
+		request.setCartId("8a75aee3-d6a7-40c7-a11d-ef0807ae2511");
+		//StoreFront storeFront = new StoreFront("SDL", "Exclusively", 0, "web", null);
+		//request.setStoreFront(storeFront);
+		ChangeItemDetails item = new ChangeItemDetails();
+		item.setSupc("SDL089563347");
+		item.setVendorCode("e16a2a");
+		item.setQuantity(1);
+		List<ChangeItemDetails> itemList = new ArrayList<ChangeItemDetails>();
+		itemList.add(item);
+		request.setItemDetails(itemList);
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateCartItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Assert.assertEquals(response.getCart()==null,true);
+	}
+	
+	
+	/**
+	 * Test method to update cart for valid cartId and invalid supc,vendor and catalog. 
+	 * valid CartId and invalid combos of supc and vendorCode
+	 *
+	 */
+	
+	@Test(dataProvider = "data-provider-validCartIdCombos")
+	public void updateValidCartWithInvalidProductCombosEXL(String cartId,String supc,String vendorCode,int intialQuantity) {
+		UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest();
+		StoreFront sf = new StoreFront();
+		sf.setCode("EXL");
+		request.setStoreFront(sf);
+		int updatedQuantity = 3;
+		request.setCartId(cartId);
+		ChangeItemDetails item = new ChangeItemDetails();
+		item.setSupc(supc);
+		item.setVendorCode(vendorCode);
+		List<ChangeItemDetails> itemList = new ArrayList<ChangeItemDetails>();
+		itemList.add(item);
+		request.setItemDetails(itemList);
+		request.getItemDetails().get(0).setQuantity(updatedQuantity);
+		request.setUserEmail("abc1990@gmail.com");
+		CartMwResponse response = null;
+		try {			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateCartItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		//Need to update this further since we are getting n number of records for any email
+		//Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() != updatedQuantity,"quantity is getting updated without proper SUPC and vendorCode");
+		//Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() == intialQuantity, "quantity is getting updated without proper SUPC and vendorCode");
+		//AssertUtils.assertBasicCartForInvalidCombos(request, response);
+	}
+	
+	/**
+	 * Test method to verify update of cartItemQuantity in case of valid cartId and valid supcVendor
+	 * 
+	 *  Also need to add data provider for quantity beyond sellable quantity
+	 */
+	
+
+	@Test(dataProvider = "data-provider-quantityOfItems")
+	public void updateCartItemWithValidSupcVendorEXL(int quantity) {
+		UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest();
+		StoreFront sf = new StoreFront();
+		sf.setCode("EXL");
+		request.setStoreFront(sf);
+		CartTestUtils.insertItemForPrepare(null,sf);
+		int initialQuantity = filledCartList.getCartItems().get(0).getQuantity();
+		request.setCartId(filledCartList.getCartId());
+		ChangeItemDetails item = new ChangeItemDetails();
+		item.setSupc(filledCartList.getCartItems().get(0).getSupc());
+		item.setVendorCode(filledCartList.getCartItems().get(0).getVendorCode());
+		item.setQuantity(quantity);
+		List<ChangeItemDetails> itemList = new ArrayList<ChangeItemDetails>();
+		itemList.add(item);
+		request.setItemDetails(itemList);
+		request.setUserEmail(filledCartList.getUserEmail());
+
+		CartMwResponse response = null;
+		try {
+			response = (CartMwResponse) cartApiHelper.getSnapDealCartResponse(
+					request, "updateCartItemQuantity");
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		updatedQuantityAfterResponse = response.getCart().getCartItems().get(0).getQuantity();
+		if(response.getCart().getCartItems().get(0).getAvailableQuantity()>= request.getItemDetails().get(0).getQuantity()){
+		Assert.assertTrue(request.getItemDetails().get(0).getQuantity() == response.getCart().getCartItems().get(0)
+				.getQuantity(),"updated quantity is not same as initial quantity");
+		updatedQuantityAfterResponse = response.getCart().getCartItems().get(0).getQuantity();
+		}
+		else
+		{ //assertion when available quantity is lesser than updated quantity. quantity should not be updated.
+			Assert.assertTrue(response.getCart().getCartItems().get(0).getQuantity() == updatedQuantityAfterResponse, "quantity should not be updated if available quantity is lesser than updated quantity");
+		}
+		AssertUtils.assertBasicCartForUpdate(request, response);;
+		
+	}
+    
+	@DataProvider(name = "data-provider-quantityOfItems")
+	private static Object[][] cartDataPincode() {
+		return new Object[][] {{1},{2},{3},{50}};
+	}
+	
+	@DataProvider(name = "data-provider-invalidCartIdCombos")
+	private static Object[][] cartDataInvalidCartIds() {
+		CartMwSRO cart = new CartMwSRO();
+		return new Object[][] {{null,"SDL089563347","e16a2a"},{"12345","SDL089563347","e16a2a"},{cart.getCartId(),"supc","vendorCode"}};
+		
+	}
+	
+	@DataProvider(name = "data-provider-validCartIdCombos")
+	private static Object[][] cartDataValidCartIds() {
+		CartTestUtils.insertItemForPrepare(null);
+		int initialQuantity = filledCartList.getCartItems().get(0).getQuantity();
+		return new Object[][] {{filledCartList.getCartId(),"supc","vendorCode",initialQuantity},{filledCartList.getCartId(),filledCartList.getCartItems().get(0).getSupc(),"vendorCode",initialQuantity},{filledCartList.getCartId(),"supc",filledCartList.getCartItems().get(0).getVendorCode(),initialQuantity}};
+	}
+}
+

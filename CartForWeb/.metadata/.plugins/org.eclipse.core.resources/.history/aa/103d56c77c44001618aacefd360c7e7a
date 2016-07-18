@@ -1,0 +1,39 @@
+package com.atul;
+
+class Node1 {
+	
+	int data;
+	Node1 left, right;
+	
+	Node1(int data) {
+		this.data = data;
+		this.left = this.right = null;
+	}
+}
+
+public class HeightOfBinaryTree {
+	
+	int heightOfBinary(Node node) {
+		if(node == null) {
+			return 0;
+		}
+		
+		int leftHeight = 1 + heightOfBinary(node.left);
+		int rightHeight = 1 + heightOfBinary(node.right);
+		Math.max(leftHeight,rightHeight);
+		return 0;
+		
+	}
+	
+	
+
+	public static void main(String[] args) {
+		Node1 node = new Node1(5);
+		node.left = new Node1(3);
+		node.left.left = new Node1(1);
+		node.right = new Node1(6);
+		node.right.right = new  Node1(8);
+
+	}
+
+}

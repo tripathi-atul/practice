@@ -1,0 +1,27 @@
+package com.atul;
+
+import java.util.*;
+import java.lang.*;
+import java.io.*;
+
+class KeyPadTyping {
+    
+    public int hashCode(Object number) {
+        if(number == 'A' || number == 'B' || number == 'C') {
+            return 2;
+        }
+        
+        if(number == 'D' || number == 'E' || number == 'F') {
+            return 3;
+        }
+         if(number == 'G' || number == 'H' || number == 'I') {
+            return 4;
+        }
+    }
+	public static void main (String[] args) {
+	    HashMap<Integer,Character> map = new HashMap<Integer,Character>();
+	    map
+	    
+		
+	}
+}

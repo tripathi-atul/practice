@@ -1,0 +1,52 @@
+package com.atul;
+
+
+class Node3 {
+	Node3 next;
+	int data;
+	
+	 Node3(int data) {
+		this.data = data;
+		this.next = null;
+	}
+}
+
+public class LinkedListReverse {
+	
+	public static Node3 reverse(Node3 head) {
+		Node3 current = head;
+		Node3 prev = null;
+		Node3 next = null;
+		while(current.next != null) {
+			next = current.next;
+			current.next = prev;
+			head = current;
+			current = next;
+		}
+		return  head;
+	}
+		
+		static void print(Node3 head) {
+			while (head.next != null) {
+				System.out.println(head.data);
+				head = head.next;
+		}
+			System.out.println(head);
+		
+	}
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stubN
+		Node3 node1 = new Node3(1);
+		node1.next = new Node3(2);
+		node1.next.next =  new Node3(3);
+		node1.next.next.next = new Node3(4);
+		System.out.println("initial linked list");
+		print(node1);
+		Node3 head = reverse(node1);
+		System.out.println("reversed linked list");
+		print(head);
+
+	}
+
+}

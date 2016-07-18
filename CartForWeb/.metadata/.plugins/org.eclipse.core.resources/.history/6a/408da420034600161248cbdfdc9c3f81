@@ -1,0 +1,59 @@
+package com.atul;
+
+import java.util.*;
+import java.lang.*;
+import java.io.*;
+
+class KeyPadTyping {
+	
+	int number;
+	char character;
+	String string;
+	
+    
+    public String getString() {
+		return string;
+	}
+	public void setString(String string) {
+		this.string = string;
+	}
+	public char getCharacter() {
+		return character;
+	}
+	public void setCharacter(char character) {
+		this.character = character;
+	}
+	public int getNumber() {
+		return number;
+	}
+	public void setNumber(int number) {
+		this.number = number;
+	}
+	
+	public int hashCode(Object number) {
+        if(((KeyPadTyping)number).getCharacter() == 'A' || ((KeyPadTyping)number).getCharacter() == 'B' || ((KeyPadTyping)number).getCharacter() == 'C') {
+            return 2;
+        }
+        
+        if(((KeyPadTyping)number).getCharacter() == 'D' || ((KeyPadTyping)number).getCharacter() == 'E' || ((KeyPadTyping)number).getCharacter() == 'F') {
+            return 3;
+        }
+         if(((KeyPadTyping)number).getCharacter() == 'G' || ((KeyPadTyping)number).getCharacter() == 'H' || ((KeyPadTyping)number).getCharacter() == 'I') {
+            return 4;
+        }
+         return 0;
+    }
+	public static void main (String[] args) {
+		KeyPadTyping keyPad = new KeyPadTyping();
+		keyPad.setCharacter('A');
+		keyPad.setCharacter('B');
+		keyPad.setCharacter('C');
+		keyPad.setNumber(2);
+		
+	    HashMap<KeyPadTyping,String> map = new HashMap<KeyPadTyping,String>();
+	    
+	    map.put(keyPad, "geeksForgeeks");
+	    
+		
+	}
+}

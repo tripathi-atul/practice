@@ -1,0 +1,33 @@
+package com.atul;
+
+import java.util.NoSuchElementException;
+import java.util.Objects;
+
+public class MaxSum {
+
+	public static void main(String[] args) {
+		
+		int[] array = {1,2,4,5,6,3,9};
+		maxsum(array);
+	}
+
+	private static int maxsum(int[] array){
+		int dplength = array.length;
+		int[] dp = new int[dplength];
+		if(dplength == 0) {
+			throw new NoSuchElementException();
+		}
+		else if(dplength == 1) {
+			dp[0] = array[0];
+			return dp[0];
+		}
+		else {
+			Math.max(dp[0], dp[1]);
+		
+			for(int i = 2; i < dplength-1; i++) {
+				
+			}
+		
+
+}
+}

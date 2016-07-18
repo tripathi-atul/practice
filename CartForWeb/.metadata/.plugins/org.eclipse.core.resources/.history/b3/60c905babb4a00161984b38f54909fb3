@@ -1,0 +1,95 @@
+package com.syncron;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+
+
+public class EverySecondIterator<T> implements Iterator<T> {
+	private boolean skipped;
+	private final Iterator<T> source;
+	
+    public EverySecondIterator(Iterator<T> target) {
+    	source = Objects.requireNonNull(target);
+    	
+    	
+    }
+
+/*    @Override
+    public boolean hasNext() {
+    	boolean returnvalue = false;
+    	    	if(iterator.hasNext()) {
+    	    		iterator.next();
+    	    		returnvalue = iterator.hasNext();
+    	    	}
+    	    	return returnvalue;
+    	
+    }
+
+    @Override
+    public T next() {
+    	T object = null;
+    	if(iterator.hasNext()) {
+    	object  = iterator.next();
+    	return object;
+    	}
+    	else
+    		return null;
+}*/
+    
+    @Override
+    public boolean hasNext() {
+    	if (!skipped) {
+    	      if (source.hasNext())
+    	        source.next();
+    	      skipped = true;
+    	    }
+    	    return source.hasNext();
+    }
+
+    @Override
+    public T next() {
+    	if (hasNext()) {
+    	      skipped = false;
+    	      return source.next();
+    	    }
+    	    throw new NoSuchElementException();
+    	
+}
+
+
+    @Override
+    public void remove() {
+    	source.remove();
+        throw new RuntimeException("Not implemented");
+    }
+    
+    
+    
+    public static void main(String[] args) throws CloneNotSupportedException {
+    	ArrayList<Integer> array = new ArrayList<Integer>();
+    	array.add(1);
+    	array.add(2);
+    	array.add(3);
+    	array.add(4);
+    	
+    	Iterator<Integer> i1 = array.iterator();
+    	Iterator<Integer> i2 = array.iterator();
+    	
+    	
+    	EverySecondIterator<Integer> e = new EverySecondIterator<Integer>(i1);
+    	
+    	System.out.println(e.hasNext());
+    	System.out.println(e.hasNext());
+    	System.out.println(e.hasNext());
+    	System.out.println(e.hasNext());
+    	System.out.println(e.hasNext());
+    	
+    	
+    	
+    
+    	
+
+    }
+}

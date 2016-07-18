@@ -1,0 +1,13 @@
+package com.atul;
+
+public class MiddleOfLL {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		
+		
+		LinkedList ll = new LinkedList();
+
+	}
+
+}

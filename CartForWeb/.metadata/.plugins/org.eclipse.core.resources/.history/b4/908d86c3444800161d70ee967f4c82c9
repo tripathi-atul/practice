@@ -1,0 +1,21 @@
+package com.atul;
+
+
+class Node3 {
+	Node3 next;
+	int data;
+	
+	 Node3(int data) {
+		this.data = data;
+		this.next = null;
+	}
+}
+
+public class LinkedListReverse {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+
+	}
+
+}
